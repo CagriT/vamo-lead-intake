@@ -1,0 +1,98 @@
+:root {
+  --off-white: #e6e6d2;
+  --input-bg: #f5fae6;
+  --text-color: #1f1f1f;
+  --border-color: #cfcfb8;
+  --accent: #3b6e3b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  background-color: var(--off-white);
+  color: var(--text-color);
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  background: var(--input-bg);
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.form-card {
+  max-width: 420px;
+  margin: auto;
+  padding: 24px;
+}
+
+.form-card {
+  margin: 16px;
+}
+
+@media (min-width: 768px) {
+  .form-card {
+    margin: 48px auto;
+  }
+}
