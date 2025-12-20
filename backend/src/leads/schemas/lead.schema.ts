@@ -25,6 +25,9 @@ export class Lead {
 
   @Prop({ type: Boolean, required: false })
   newsletterSingleOptIn: boolean;
+
+  @Prop({ type: String, required: false })
+  imageUrl: string;
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);
