@@ -22,6 +22,9 @@ export class Lead {
 
   @Prop({ required: true })
   phone: string;
+
+  @Prop({ type: Boolean, required: false })
+  newsletterSingleOptIn: boolean;
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);

@@ -1,7 +1,9 @@
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsPostalCode,
   IsString,
 } from 'class-validator';
@@ -28,4 +30,8 @@ export class CreateLeadDto {
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  @IsOptional()
+  @IsBoolean()
+  newsletterSingleOptIn?: boolean;
 }
