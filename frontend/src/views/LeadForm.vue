@@ -1,5 +1,12 @@
 <template>
   <div class="page">
+    <p v-if="submitSuccess" class="success">
+      Vielen Dank! Wir melden uns bei Ihnen.
+    </p>
+
+    <p v-if="submitError" class="error">
+      {{ submitError }}
+    </p>
     <form class="form-card" @submit.prevent="submit">
       <h1>Ihre Anfrage</h1>
 
@@ -15,41 +22,82 @@
             {{ option.label }}
           </option>
         </select>
+        <span v-if="errors.salutation" class="error">
+          {{ errors.salutation }}
+        </span>
       </div>
 
       <div class="field">
         <label>Vorname</label>
         <input v-model="form.firstName" type="text" />
+        <span v-if="errors.firstName" class="error">
+          {{ errors.firstName }}
+        </span>
       </div>
 
       <div class="field">
         <label>Nachname</label>
         <input v-model="form.lastName" type="text" />
+        <span v-if="errors.lastName" class="error">
+          {{ errors.lastName }}
+        </span>
       </div>
 
       <div class="field">
         <label>Postleitzahl</label>
         <input v-model="form.postalCode" type="text" />
+        <span v-if="errors.postalCode" class="error">
+          {{ errors.postalCode }}
+        </span>
       </div>
 
       <div class="field">
         <label>E-Mail</label>
         <input v-model="form.email" type="email" />
+        <span v-if="errors.email" class="error">
+          {{ errors.email }}
+        </span>
       </div>
 
       <div class="field">
         <label>Telefon</label>
         <input v-model="form.phone" type="tel" />
+        <span v-if="errors.phone" class="error">
+          {{ errors.phone }}
+        </span>
       </div>
 
       <button type="submit" :disabled="!isFormValid">Anfrage senden</button>
     </form>
+    <div class="checkbox-field">
+      <label>
+        <input type="checkbox" v-model="form.privacyAccepted" />
+        Ich habe die
+        <a href="/datenschutz" target="_blank">Datenschutzerklärung</a>
+        zur Kenntnis genommen.
+      </label>
+
+      <span v-if="errors.privacyAccepted" class="error">
+        {{ errors.privacyAccepted }}
+      </span>
+    </div>
+
+    <div class="checkbox-field">
+      <label>
+        <input type="checkbox" v-model="form.newsletterSingleOptIn" />
+        Ja, ich möchte den Newsletter von Vamo erhalten.
+      </label>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from "vue";
+import { reactive, ref } from "vue";
+import { useLeadValidation } from "@/composables/useLeadValidation";
 
+const isSubmitting = ref(false);
+const submitSuccess = ref(false);
+const submitError = ref("");
 const form = reactive({
   salutation: "",
   firstName: "",
@@ -57,14 +105,10 @@ const form = reactive({
   postalCode: "",
   email: "",
   phone: "",
+  privacyAccepted: false,
+  newsletterSingleOptIn: false,
 });
-
-// const salutation = ref("");
-// const firstName = ref("");
-// const lastName = ref("");
-// const postalCode = ref("");
-// const email = ref("");
-// const phone = ref("");
+const { errors, isFormValid } = useLeadValidation(form);
 
 const salutationOptions = [
   { label: "Herr", value: "MALE" },
@@ -72,34 +116,36 @@ const salutationOptions = [
   { label: "Divers", value: "DIVERS" },
 ];
 
-const isEmailValid = computed(() => form.email.includes("@"));
-const isFormValid = computed(() => {
-  return Boolean(
-    form.salutation &&
-      form.firstName &&
-      form.lastName &&
-      form.postalCode &&
-      isEmailValid.value &&
-      form.phone
-  );
-});
-
 async function submit() {
+  if (!isFormValid.value) return;
+
+  isSubmitting.value = true;
+  submitError.value = "";
+
   const payload = {
     salutation: form.salutation,
-    firstName: form.firstName,
-    lastName: form.lastName,
-    postalCode: form.postalCode,
-    email: form.email,
-    phone: form.phone,
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    postalCode: form.postalCode.trim(),
+    email: form.email.trim(),
+    phone: form.phone.trim(),
+    newsletterSingleOptIn: form.newsletterSingleOptIn,
   };
   console.log("Submitting lead:", payload);
-  await fetch("http://localhost:3000/leads", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  alert("Lead submitted!");
+
+  try {
+    await fetch("http://localhost:3000/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    submitSuccess.value = true;
+  } catch (err) {
+    submitError.value = "Übermittlung fehlgeschlagen. Bitte erneut versuchen.";
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -172,5 +218,35 @@ button {
 button:disabled {
   background: #9fb89f;
   cursor: not-allowed;
+}
+
+.success {
+  color: #2e7d32;
+  margin-bottom: 16px;
+}
+.error {
+  color: #b00020;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.checkbox-field {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.checkbox-field input {
+  margin-right: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.checkbox-label input {
+  margin-top: 2px;
 }
 </style>
