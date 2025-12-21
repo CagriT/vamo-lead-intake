@@ -1,17 +1,19 @@
 import {
-  CreateLeadPayload,
+  AttachPictureParams,
+  CreateLeadParams,
   CreateLeadResponse,
-  PresignPictureRequest,
+  PresignPictureParams,
   PresignPictureResponse,
-  AttachPictureRequest,
+  UploadImageParams,
 } from "@/types/leads";
-
-const API_BASE = "http://localhost:3000";
+import { API_BASE_URL } from "@/constants";
 
 export async function createLead(
-  payload: CreateLeadPayload
+  params: CreateLeadParams
 ): Promise<CreateLeadResponse> {
-  const response = await fetch(`${API_BASE}/leads`, {
+  const { payload } = params;
+
+  const response = await fetch(`${API_BASE_URL}/leads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -26,18 +28,21 @@ export async function createLead(
 }
 
 export async function presignPicture(
-  leadId: string,
-  payload: PresignPictureRequest,
-  pictureToken: string
+  params: PresignPictureParams
 ): Promise<PresignPictureResponse> {
-  const response = await fetch(`${API_BASE}/leads/${leadId}/pictures/presign`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${pictureToken}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const { leadId, payload, pictureToken } = params;
+
+  const response = await fetch(
+    `${API_BASE_URL}/leads/${leadId}/pictures/presign`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${pictureToken}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
   if (!response.ok) {
     throw new Error("Failed to get presigned POST");
@@ -47,10 +52,10 @@ export async function presignPicture(
 }
 
 export async function uploadImageToS3(
-  url: string,
-  fields: Record<string, string>,
-  file: File
+  params: UploadImageParams
 ): Promise<void> {
+  const { url, fields, file } = params;
+
   const formData = new FormData();
   Object.entries(fields).forEach(([key, value]) => {
     formData.append(key, value);
@@ -68,11 +73,11 @@ export async function uploadImageToS3(
 }
 
 export async function attachPictureToLead(
-  leadId: string,
-  payload: AttachPictureRequest,
-  pictureToken: string
+  params: AttachPictureParams
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/leads/${leadId}/pictures`, {
+  const { leadId, payload, pictureToken } = params;
+
+  const response = await fetch(`${API_BASE_URL}/leads/${leadId}/pictures`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

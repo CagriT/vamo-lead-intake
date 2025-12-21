@@ -5,25 +5,13 @@ import { PresignPictureDto } from './dto/presign-picture.dto';
 import { AttachPictureDto } from './dto/attach-picture.dto';
 import { LeadPictureGuard } from './lead-picture.guard';
 import { Throttle, ThrottlerGuard, seconds } from '@nestjs/throttler';
-
-interface CreateLeadResponse {
-  success: boolean;
-  message: string;
-  leadId: string;
-  pictureToken: string;
-}
-
-interface PresignPictureResponse {
-  url: string;
-  fields: Record<string, string>;
-  accessUrl: string;
-  key: string;
-}
-
-interface AttachPictureResponse {
-  success: boolean;
-  message: string;
-}
+import {
+  AttachPictureParams,
+  AttachPictureResponse,
+  CreateLeadResponse,
+  PresignPictureParams,
+  PresignPictureResponse,
+} from '../types';
 
 @Controller('leads')
 export class LeadsController {
@@ -43,7 +31,7 @@ export class LeadsController {
     @Param('id') leadId: string,
     @Body() body: PresignPictureDto,
   ): Promise<PresignPictureResponse> {
-    return this.leadsService.presignPicture(leadId, body);
+    return this.leadsService.presignPicture({ leadId, body });
   }
 
   @UseGuards(ThrottlerGuard, LeadPictureGuard)
@@ -53,6 +41,6 @@ export class LeadsController {
     @Param('id') leadId: string,
     @Body() body: AttachPictureDto,
   ): Promise<AttachPictureResponse> {
-    return this.leadsService.attachPicture(leadId, body);
+    return this.leadsService.attachPicture({ leadId, body });
   }
 }

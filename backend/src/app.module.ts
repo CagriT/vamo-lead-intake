@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LeadsModule } from './leads/leads.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -13,7 +13,16 @@ import { CrmModule } from './crm/crm.module';
       isGlobal: true,
     }),
     // MongoDB connection
-    MongooseModule.forRoot(process.env.MONGODB_URI as string),
+    MongooseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const uri = configService.get<string>('MONGODB_URI');
+        if (!uri) {
+          throw new Error('MONGODB_URI is not set');
+        }
+        return { uri };
+      },
+    }),
     CrmModule,
     // Feature modules
     LeadsModule,

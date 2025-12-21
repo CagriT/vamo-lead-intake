@@ -1,19 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import type { CrmService } from './crm.service';
 import { CrmLeadDto } from './dto/crm-lead.dto';
+import { AttachLeadPictureParams, CreateLeadParams } from 'src/types';
 
 @Injectable()
 export class SalesforceCrmService implements CrmService {
-  async createLead(lead: CrmLeadDto): Promise<void> {
+  async createLead(params: CreateLeadParams): Promise<void> {
+    const { lead } = params;
     const payload = this.mapToSalesforceLeadPayload(lead);
 
     try {
       // TODO: real HTTP call with axios/fetch
-      console.log('🚀 [SALESFORCE CRM] Payload to be sent:', payload);
+      console.log('[SALESFORCE CRM] Lead payload prepared');
 
-      // simulate success
       return;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      this.handleSalesforceError(error);
+    }
+  }
+
+  async attachLeadPicture(params: AttachLeadPictureParams): Promise<void> {
+    const { leadId } = params;
+
+    try {
+      // TODO: use Salesforce Lead Id or custom field mapping
+      console.log('[SALESFORCE CRM] Attach picture', { leadId });
+
+      return;
+    } catch (error: unknown) {
       this.handleSalesforceError(error);
     }
   }
@@ -45,36 +59,27 @@ export class SalesforceCrmService implements CrmService {
     }
   }
 
-  private handleSalesforceError(error: any) {
-    if (error?.response?.status === 401) {
-      // token expired → refresh token → retry once
+  private handleSalesforceError(error: unknown) {
+    const status = this.extractStatus(error);
+
+    if (status === 401) {
       throw new Error('AUTH_ERROR');
     }
 
-    if (error?.response?.status === 429) {
-      // rate limit
+    if (status === 429) {
       throw new Error('RETRYABLE_ERROR');
     }
 
-    if (error?.response?.status >= 500) {
+    if (status && status >= 500) {
       throw new Error('RETRYABLE_ERROR');
     }
 
-    // validation or other errors
     throw new Error('NON_RETRYABLE_ERROR');
   }
 
-  async attachLeadPicture(leadId: string, pictureUrl: string): Promise<void> {
-    try {
-      // TODO: use Salesforce Lead Id or custom field mapping
-      console.log('🖼️ [SALESFORCE CRM] Attach picture', {
-        leadId,
-        pictureUrl,
-      });
-
-      return;
-    } catch (error: any) {
-      this.handleSalesforceError(error);
-    }
+  private extractStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const response = (error as { response?: { status?: number } }).response;
+    return typeof response?.status === 'number' ? response.status : undefined;
   }
 }

@@ -73,8 +73,19 @@ describe('LeadsService', () => {
 
     expect(mockLeadModel).toHaveBeenCalledWith(dto);
     expect(mockLeadInstance.save).toHaveBeenCalled();
-    expect(mockCrmService.createLead).toHaveBeenCalled();
-    expect(mockTokenService.signForLead).toHaveBeenCalledWith('lead123');
+    expect(mockCrmService.createLead).toHaveBeenCalledWith({
+      lead: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        phone: dto.phone,
+        postalCode: dto.postalCode,
+        salutation: dto.salutation,
+      },
+    });
+    expect(mockTokenService.signForLead).toHaveBeenCalledWith({
+      leadId: 'lead123',
+    });
     expect(result).toEqual({
       success: true,
       message: 'Lead successfully created',
@@ -84,8 +95,10 @@ describe('LeadsService', () => {
   });
 
   it('presignPicture calls S3Service with correct params', async () => {
-    const leadId = 'lead123';
-    const body = { fileName: 'photo.jpg', contentType: 'image/jpeg' };
+    const params = {
+      leadId: 'lead123',
+      body: { fileName: 'photo.jpg', contentType: 'image/jpeg' },
+    };
 
     mockS3Service.generatePresignedUploadUrl.mockResolvedValue({
       url: 'https://s3-presigned-post',
@@ -94,13 +107,13 @@ describe('LeadsService', () => {
       key: 'leads/lead123/photo.jpg',
     });
 
-    const result = await service.presignPicture(leadId, body);
+    const result = await service.presignPicture(params);
 
-    expect(mockS3Service.generatePresignedUploadUrl).toHaveBeenCalledWith(
-      leadId,
-      body.fileName,
-      body.contentType,
-    );
+    expect(mockS3Service.generatePresignedUploadUrl).toHaveBeenCalledWith({
+      leadId: params.leadId,
+      fileName: params.body.fileName,
+      contentType: params.body.contentType,
+    });
     expect(result).toHaveProperty('url');
     expect(result).toHaveProperty('fields');
     expect(result).toHaveProperty('accessUrl');
@@ -108,37 +121,39 @@ describe('LeadsService', () => {
   });
 
   it('attachPicture updates lead and calls CRM with fresh access URL', async () => {
-    const leadId = 'lead123';
-    const body = {
-      key: 'leads/lead123/photo.jpg',
-      mimeType: 'image/jpeg',
-      originalName: 'photo.jpg',
+    const params = {
+      leadId: 'lead123',
+      body: {
+        key: 'leads/lead123/photo.jpg',
+        mimeType: 'image/jpeg',
+        originalName: 'photo.jpg',
+      },
     };
 
-    mockLeadModel.findByIdAndUpdate.mockResolvedValue({ _id: leadId });
+    mockLeadModel.findByIdAndUpdate.mockResolvedValue({ _id: params.leadId });
     mockS3Service.generatePresignedGetUrl.mockResolvedValue(
       'https://s3-presigned-get',
     );
 
-    const result = await service.attachPicture(leadId, body);
+    const result = await service.attachPicture(params);
 
-    expect(mockS3Service.verifyUploadedObject).toHaveBeenCalledWith(
-      body.key,
-      body.mimeType,
-      leadId,
-    );
+    expect(mockS3Service.verifyUploadedObject).toHaveBeenCalledWith({
+      key: params.body.key,
+      expectedContentType: params.body.mimeType,
+      leadId: params.leadId,
+    });
     expect(mockLeadModel.findByIdAndUpdate).toHaveBeenCalledWith(
-      leadId,
-      { $push: { pictures: body } },
+      params.leadId,
+      { $push: { pictures: params.body } },
       { new: true },
     );
     expect(mockS3Service.generatePresignedGetUrl).toHaveBeenCalledWith(
-      body.key,
+      params.body.key,
     );
-    expect(mockCrmService.attachLeadPicture).toHaveBeenCalledWith(
-      leadId,
-      'https://s3-presigned-get',
-    );
+    expect(mockCrmService.attachLeadPicture).toHaveBeenCalledWith({
+      leadId: params.leadId,
+      pictureUrl: 'https://s3-presigned-get',
+    });
     expect(result).toEqual({
       success: true,
       message: 'Picture attached',
@@ -146,41 +161,45 @@ describe('LeadsService', () => {
   });
 
   it('attachPicture throws if uploaded object fails verification', async () => {
-    const leadId = 'lead123';
-    const body = {
-      key: 'leads/lead123/photo.jpg',
-      mimeType: 'image/jpeg',
-      originalName: 'photo.jpg',
+    const params = {
+      leadId: 'lead123',
+      body: {
+        key: 'leads/lead123/photo.jpg',
+        mimeType: 'image/jpeg',
+        originalName: 'photo.jpg',
+      },
     };
 
-    mockLeadModel.findByIdAndUpdate.mockResolvedValue({ _id: leadId });
+    mockLeadModel.findByIdAndUpdate.mockResolvedValue({ _id: params.leadId });
     mockS3Service.verifyUploadedObject.mockRejectedValue(
       new Error('Uploaded file type mismatch'),
     );
 
-    await expect(service.attachPicture(leadId, body)).rejects.toThrow(
+    await expect(service.attachPicture(params)).rejects.toThrow(
       'Uploaded file type mismatch',
     );
-    expect(mockS3Service.verifyUploadedObject).toHaveBeenCalledWith(
-      body.key,
-      body.mimeType,
-      leadId,
-    );
+    expect(mockS3Service.verifyUploadedObject).toHaveBeenCalledWith({
+      key: params.body.key,
+      expectedContentType: params.body.mimeType,
+      leadId: params.leadId,
+    });
     expect(mockS3Service.generatePresignedGetUrl).not.toHaveBeenCalled();
     expect(mockCrmService.attachLeadPicture).not.toHaveBeenCalled();
   });
 
   it('attachPicture throws if lead is not found', async () => {
-    const leadId = 'missing-lead';
-    const body = {
-      key: 'leads/missing-lead/photo.jpg',
-      mimeType: 'image/jpeg',
-      originalName: 'photo.jpg',
+    const params = {
+      leadId: 'missing-lead',
+      body: {
+        key: 'leads/missing-lead/photo.jpg',
+        mimeType: 'image/jpeg',
+        originalName: 'photo.jpg',
+      },
     };
 
     mockLeadModel.findByIdAndUpdate.mockResolvedValue(null);
 
-    await expect(service.attachPicture(leadId, body)).rejects.toThrow(
+    await expect(service.attachPicture(params)).rejects.toThrow(
       'Lead not found',
     );
     expect(mockCrmService.attachLeadPicture).not.toHaveBeenCalled();

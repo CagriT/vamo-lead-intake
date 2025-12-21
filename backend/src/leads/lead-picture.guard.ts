@@ -14,7 +14,6 @@ type AuthedRequest = Request & { leadPicture?: { leadId: string } };
 export class LeadPictureGuard implements CanActivate {
   constructor(private readonly tokenService: LeadPictureTokenService) {}
 
-  // Enforces Bearer token, scope, and leadId match
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
     const authHeader = req.headers.authorization;
@@ -26,7 +25,7 @@ export class LeadPictureGuard implements CanActivate {
     const token = authHeader.slice('Bearer '.length).trim();
 
     try {
-      const payload = this.tokenService.verify(token);
+      const payload = this.tokenService.verify({ token });
 
       if (payload.scope !== LEAD_PICTURE_SCOPE) {
         throw new UnauthorizedException('Invalid token scope');

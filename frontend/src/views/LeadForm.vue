@@ -23,49 +23,31 @@
             {{ option.label }}
           </option>
         </select>
-        <!-- <span v-if="errors.salutation" class="error">
-          {{ errors.salutation }}
-        </span> -->
       </div>
 
       <div class="field">
         <label>Vorname</label>
         <input v-model="form.firstName" type="text" />
-        <!-- <span v-if="errors.firstName" class="error">
-          {{ errors.firstName }}
-        </span> -->
       </div>
 
       <div class="field">
         <label>Nachname</label>
         <input v-model="form.lastName" type="text" />
-        <!-- <span v-if="errors.lastName" class="error">
-          {{ errors.lastName }}
-        </span> -->
       </div>
 
       <div class="field">
         <label>Postleitzahl</label>
         <input v-model="form.postalCode" type="text" />
-        <!-- <span v-if="errors.postalCode" class="error">
-          {{ errors.postalCode }}
-        </span> -->
       </div>
 
       <div class="field">
         <label>E-Mail</label>
         <input v-model="form.email" type="email" />
-        <!-- <span v-if="errors.email" class="error">
-          {{ errors.email }}
-        </span> -->
       </div>
 
       <div class="field">
         <label>Telefon</label>
         <input v-model="form.phone" type="tel" />
-        <!-- <span v-if="errors.phone" class="error">
-          {{ errors.phone }}
-        </span> -->
       </div>
 
       <div class="checkbox-field">
@@ -75,9 +57,6 @@
           <a href="/datenschutz" target="_blank">Datenschutzerklärung</a>
           zur Kenntnis genommen.
         </label>
-        <!-- <span v-if="errors.privacyAccepted" class="error">
-          {{ errors.privacyAccepted }}
-        </span> -->
       </div>
 
       <div class="checkbox-field">
@@ -106,7 +85,7 @@
         <label>Bilder auswählen</label>
         <input
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          :accept="IMAGE_ACCEPT_TYPES"
           multiple
           @change="handleImageSelect"
           :disabled="isUploadingImages"
@@ -144,24 +123,23 @@
 import { reactive, ref, watch } from "vue";
 import { useLeadValidation } from "@/composables/useLeadValidation";
 import {
+  attachPictureToLead,
   createLead,
   presignPicture,
   uploadImageToS3,
-  attachPictureToLead,
 } from "@/api/leads";
 import { CreateLeadPayload } from "@/types/leads";
-
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
+import { IMAGE_ACCEPT_TYPES, MAX_FILE_SIZE_BYTES } from "@/constants";
 
 const isSubmitting = ref<boolean>(false);
 const submitSuccess = ref<boolean>(false);
 const submitError = ref<string>("");
 const showImageUpload = ref<boolean>(false);
+const showValidationError = ref<boolean>(false);
 
 const selectedImages = ref<File[]>([]);
 const isUploadingImages = ref<boolean>(false);
 const imageUploadError = ref<string>("");
-const showValidationError = ref(false);
 
 const currentLeadId = ref<string>("");
 const currentPictureToken = ref<string>("");
@@ -177,21 +155,21 @@ const form = reactive({
   newsletterSingleOptIn: false,
 });
 
-watch(
-  () => ({ ...form }),
-  () => {
-    showValidationError.value = false;
-  },
-  { deep: true }
-);
-
-const { /*  errors, */ isFormValid } = useLeadValidation(form);
+const { errors, isFormValid } = useLeadValidation(form);
 
 const salutationOptions = [
   { label: "Herr", value: "MALE" },
   { label: "Frau", value: "FEMALE" },
   { label: "Divers", value: "DIVERS" },
 ];
+
+watch(
+  () => form,
+  () => {
+    showValidationError.value = false;
+  },
+  { deep: true }
+);
 
 function handleImageSelect(event: Event): void {
   const target = event.target as HTMLInputElement;
@@ -229,6 +207,7 @@ function resetForm(): void {
   selectedImages.value = [];
   currentLeadId.value = "";
   currentPictureToken.value = "";
+  showValidationError.value = false;
 }
 
 async function submit(): Promise<void> {
@@ -236,6 +215,7 @@ async function submit(): Promise<void> {
     showValidationError.value = true;
     return;
   }
+
   isSubmitting.value = true;
   submitError.value = "";
 
@@ -250,13 +230,13 @@ async function submit(): Promise<void> {
   };
 
   try {
-    const { leadId, pictureToken } = await createLead(payload);
+    const { leadId, pictureToken } = await createLead({ payload });
     currentLeadId.value = leadId;
     currentPictureToken.value = pictureToken;
 
     submitSuccess.value = true;
     showImageUpload.value = true;
-  } catch (err) {
+  } catch {
     submitError.value = "Übermittlung fehlgeschlagen. Bitte erneut versuchen.";
   } finally {
     isSubmitting.value = false;
@@ -268,40 +248,45 @@ async function uploadImages(): Promise<void> {
     !currentLeadId.value ||
     !currentPictureToken.value ||
     selectedImages.value.length === 0
-  )
+  ) {
     return;
+  }
 
   isUploadingImages.value = true;
   imageUploadError.value = "";
 
   try {
     for (const file of selectedImages.value) {
-      const presign = await presignPicture(
-        currentLeadId.value,
-        {
+      const presign = await presignPicture({
+        leadId: currentLeadId.value,
+        payload: {
           fileName: file.name,
           contentType: file.type,
         },
-        currentPictureToken.value
-      );
+        pictureToken: currentPictureToken.value,
+      });
 
-      await uploadImageToS3(presign.url, presign.fields, file);
+      await uploadImageToS3({
+        url: presign.url,
+        fields: presign.fields,
+        file,
+      });
 
-      await attachPictureToLead(
-        currentLeadId.value,
-        {
+      await attachPictureToLead({
+        leadId: currentLeadId.value,
+        payload: {
           key: presign.key,
           mimeType: file.type,
           originalName: file.name,
         },
-        currentPictureToken.value
-      );
+        pictureToken: currentPictureToken.value,
+      });
     }
 
     showImageUpload.value = false;
     submitSuccess.value = true;
     resetForm();
-  } catch (err) {
+  } catch {
     imageUploadError.value =
       "Bild-Upload fehlgeschlagen. Bitte erneut versuchen.";
   } finally {

@@ -1,6 +1,6 @@
-import { CrmLeadDto } from './dto/crm-lead.dto';
+import { AttachLeadPictureParams, CreateLeadParams } from 'src/types';
 
 export interface CrmService {
-  createLead(lead: CrmLeadDto): Promise<void>;
-  attachLeadPicture(leadId: string, pictureUrl: string): Promise<void>;
+  createLead(params: CreateLeadParams): Promise<void>;
+  attachLeadPicture(params: AttachLeadPictureParams): Promise<void>;
 }

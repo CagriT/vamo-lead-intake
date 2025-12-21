@@ -1,20 +1,9 @@
 import { computed } from "vue";
+import { LeadFormValues } from "@/types/leads";
+import { EMAIL_REGEX } from "@/constants";
 
-interface LeadForm {
-  salutation: string;
-  firstName: string;
-  lastName: string;
-  postalCode: string;
-  email: string;
-  phone: string;
-  privacyAccepted: boolean;
-  newsletterSingleOptIn?: boolean;
-}
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export function useLeadValidation(form: LeadForm) {
-  const isEmailValid = computed(() => emailRegex.test(form.email));
+export function useLeadValidation(form: LeadFormValues) {
+  const isEmailValid = computed(() => EMAIL_REGEX.test(form.email));
 
   const errors = computed(() => ({
     salutation: !form.salutation ? "Bitte wählen Sie eine Anrede" : "",

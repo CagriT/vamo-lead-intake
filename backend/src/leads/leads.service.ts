@@ -7,28 +7,14 @@ import { CrmLeadDto } from '../crm/dto/crm-lead.dto';
 import { CRM_SERVICE } from '../crm/crm.constants';
 import type { CrmService } from '../crm/crm.service';
 import { S3Service } from '../s3/s3.service';
-import { PresignPictureDto } from './dto/presign-picture.dto';
-import { AttachPictureDto } from './dto/attach-picture.dto';
+import {
+  AttachPictureParams,
+  AttachPictureResponse,
+  CreateLeadResponse,
+  PresignPictureParams,
+  PresignPictureResponse,
+} from '../types';
 import { LeadPictureTokenService } from './lead-picture-token.service';
-
-interface CreateLeadResponse {
-  success: boolean;
-  message: string;
-  leadId: string;
-  pictureToken: string;
-}
-
-interface PresignPictureResponse {
-  url: string;
-  fields: Record<string, string>;
-  accessUrl: string;
-  key: string;
-}
-
-interface AttachPictureResponse {
-  success: boolean;
-  message: string;
-}
 
 @Injectable()
 export class LeadsService {
@@ -43,7 +29,6 @@ export class LeadsService {
     private readonly leadPictureTokenService: LeadPictureTokenService,
   ) {}
 
-  // Creates the lead and returns a short-lived token for picture upload
   async createLead(dto: CreateLeadDto): Promise<CreateLeadResponse> {
     const lead = new this.leadModel(dto);
     await lead.save();
@@ -57,10 +42,10 @@ export class LeadsService {
       salutation: dto.salutation,
     };
 
-    await this.crmService.createLead(crmLead);
+    await this.crmService.createLead({ lead: crmLead });
 
     const leadId = lead._id.toString();
-    const pictureToken = this.leadPictureTokenService.signForLead(leadId);
+    const pictureToken = this.leadPictureTokenService.signForLead({ leadId });
 
     return {
       success: true,
@@ -70,23 +55,23 @@ export class LeadsService {
     };
   }
 
-  // Generates presigned POST + GET URLs for a specific image
   async presignPicture(
-    leadId: string,
-    body: PresignPictureDto,
+    params: PresignPictureParams,
   ): Promise<PresignPictureResponse> {
-    return this.s3Service.generatePresignedUploadUrl(
+    const { leadId, body } = params;
+
+    return this.s3Service.generatePresignedUploadUrl({
       leadId,
-      body.fileName,
-      body.contentType,
-    );
+      fileName: body.fileName,
+      contentType: body.contentType,
+    });
   }
 
-  // Stores picture metadata and forwards a fresh access URL to CRM
   async attachPicture(
-    leadId: string,
-    body: AttachPictureDto,
+    params: AttachPictureParams,
   ): Promise<AttachPictureResponse> {
+    const { leadId, body } = params;
+
     const lead = await this.leadModel.findByIdAndUpdate(
       leadId,
       { $push: { pictures: body } },
@@ -98,11 +83,18 @@ export class LeadsService {
     }
 
     // Ensure the S3 object exists and matches our size/type/encryption rules
-    await this.s3Service.verifyUploadedObject(body.key, body.mimeType, leadId);
+    await this.s3Service.verifyUploadedObject({
+      key: body.key,
+      expectedContentType: body.mimeType,
+      leadId,
+    });
 
     const accessUrl = await this.s3Service.generatePresignedGetUrl(body.key);
     // In production, map to the Salesforce Lead Id stored on the lead
-    await this.crmService.attachLeadPicture(leadId, accessUrl);
+    await this.crmService.attachLeadPicture({
+      leadId,
+      pictureUrl: accessUrl,
+    });
 
     return {
       success: true,

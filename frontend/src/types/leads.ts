@@ -30,3 +30,36 @@ export interface AttachPictureRequest {
   mimeType: string;
   originalName: string;
 }
+
+export interface CreateLeadParams {
+  payload: CreateLeadPayload;
+}
+
+export interface PresignPictureParams {
+  leadId: string;
+  payload: PresignPictureRequest;
+  pictureToken: string;
+}
+
+export interface UploadImageParams {
+  url: string;
+  fields: Record<string, string>;
+  file: File;
+}
+
+export interface AttachPictureParams {
+  leadId: string;
+  payload: AttachPictureRequest;
+  pictureToken: string;
+}
+
+export interface LeadFormValues {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  postalCode: string;
+  email: string;
+  phone: string;
+  privacyAccepted: boolean;
+  newsletterSingleOptIn?: boolean;
+}

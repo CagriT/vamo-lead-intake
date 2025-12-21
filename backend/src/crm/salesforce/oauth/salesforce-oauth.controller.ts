@@ -1,4 +1,10 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { SalesforceOAuthService } from './salesforce-oauth.service';
 
@@ -13,7 +19,11 @@ export class SalesforceOAuthController {
   }
 
   @Get('callback')
-  async callback(@Query('code') code: string) {
+  async callback(@Query('code') code?: string) {
+    if (!code) {
+      throw new BadRequestException('Missing authorization code');
+    }
+
     return this.oauthService.exchangeCodeForToken(code);
   }
 }

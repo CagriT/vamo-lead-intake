@@ -1,27 +1,27 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
-
-interface PresignedPostResponse {
-  url: string;
-  fields: Record<string, string>;
-  accessUrl: string;
-  key: string;
-}
-
-const ALLOWED_IMAGE_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-]);
-
-const MAX_FILE_NAME_LENGTH = 100;
+import {
+  GeneratePresignedUploadUrlParams,
+  PresignPictureResponse,
+  VerifyUploadedObjectParams,
+} from '../types';
+import {
+  ALLOWED_IMAGE_TYPES,
+  EXT_TO_MIME,
+  MAX_FILE_NAME_LENGTH,
+  MAX_IMAGE_BYTES,
+  PRESIGNED_URL_TTL_SECONDS,
+  S3_META_LEAD_ID_KEY,
+  S3_SERVER_SIDE_ENCRYPTION,
+} from '../constants';
 
 function sanitizeFileName(fileName: string): string {
   const base = fileName.split(/[\\/]/).pop() || '';
@@ -30,15 +30,6 @@ function sanitizeFileName(fileName: string): string {
     ? safe.slice(-MAX_FILE_NAME_LENGTH)
     : safe;
 }
-
-const EXT_TO_MIME: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-  heic: 'image/heic',
-  heif: 'image/heif',
-};
 
 function getExtension(fileName: string): string {
   const parts = fileName.split('.');
@@ -72,10 +63,10 @@ export class S3Service {
   }
 
   async generatePresignedUploadUrl(
-    leadId: string,
-    fileName: string,
-    contentType: string,
-  ): Promise<PresignedPostResponse> {
+    params: GeneratePresignedUploadUrlParams,
+  ): Promise<PresignPictureResponse> {
+    const { leadId, fileName, contentType } = params;
+
     if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
       throw new BadRequestException(`Unsupported image type: ${contentType}`);
     }
@@ -91,21 +82,23 @@ export class S3Service {
 
     const key = `leads/${leadId}/${Date.now()}-${randomUUID()}-${safeFileName}`;
 
+    const metaHeader = `x-amz-meta-${S3_META_LEAD_ID_KEY}`;
+
     const { url, fields } = await createPresignedPost(this.s3Client, {
       Bucket: this.bucketName,
       Key: key,
       Conditions: [
-        ['content-length-range', 1, 20 * 1024 * 1024], // 20MB limit
+        ['content-length-range', 1, MAX_IMAGE_BYTES],
         ['eq', '$Content-Type', contentType],
-        ['eq', '$x-amz-server-side-encryption', 'AES256'],
-        ['eq', '$x-amz-meta-lead-id', leadId],
+        ['eq', '$x-amz-server-side-encryption', S3_SERVER_SIDE_ENCRYPTION],
+        ['eq', `$${metaHeader}`, leadId],
       ],
       Fields: {
         'Content-Type': contentType,
-        'x-amz-server-side-encryption': 'AES256',
-        'x-amz-meta-lead-id': leadId,
+        'x-amz-server-side-encryption': S3_SERVER_SIDE_ENCRYPTION,
+        [metaHeader]: leadId,
       },
-      Expires: 3600,
+      Expires: PRESIGNED_URL_TTL_SECONDS,
     });
 
     const getCommand = new GetObjectCommand({
@@ -114,10 +107,45 @@ export class S3Service {
     });
 
     const accessUrl = await getSignedUrl(this.s3Client, getCommand, {
-      expiresIn: 3600,
+      expiresIn: PRESIGNED_URL_TTL_SECONDS,
     });
 
     return { url, fields, accessUrl, key };
+  }
+
+  // Verify the uploaded object exists and matches our security constraints
+  async verifyUploadedObject(
+    params: VerifyUploadedObjectParams,
+  ): Promise<void> {
+    const { key, expectedContentType, leadId } = params;
+
+    const head = await this.s3Client.send(
+      new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      }),
+    );
+
+    // Enforce size limit at the server side
+    if (head.ContentLength && head.ContentLength > MAX_IMAGE_BYTES) {
+      throw new BadRequestException('Uploaded file exceeds size limit');
+    }
+
+    // Ensure MIME type matches what was approved at presign
+    if (head.ContentType !== expectedContentType) {
+      throw new BadRequestException('Uploaded file type mismatch');
+    }
+
+    // Enforce encryption-at-rest
+    if (head.ServerSideEncryption !== S3_SERVER_SIDE_ENCRYPTION) {
+      throw new BadRequestException('Uploaded file is not encrypted');
+    }
+
+    // S3 metadata keys are lowercased
+    const metaLeadId = head.Metadata?.[S3_META_LEAD_ID_KEY];
+    if (metaLeadId !== leadId) {
+      throw new BadRequestException('Uploaded file does not belong to lead');
+    }
   }
 
   // to generate a presigned GET URL to transmit it to CRM
@@ -128,42 +156,7 @@ export class S3Service {
     });
 
     return getSignedUrl(this.s3Client, getCommand, {
-      expiresIn: 3600,
+      expiresIn: PRESIGNED_URL_TTL_SECONDS,
     });
-  }
-
-  // Verify the uploaded object exists and matches our security constraints
-  async verifyUploadedObject(
-    key: string,
-    expectedContentType: string,
-    leadId: string,
-  ): Promise<void> {
-    const head = await this.s3Client.send(
-      new HeadObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      }),
-    );
-
-    // Enforce size limit at the server side
-    if (head.ContentLength && head.ContentLength > 20 * 1024 * 1024) {
-      throw new BadRequestException('Uploaded file exceeds size limit');
-    }
-
-    // Ensure MIME type matches what was approved at presign
-    if (head.ContentType !== expectedContentType) {
-      throw new BadRequestException('Uploaded file type mismatch');
-    }
-
-    // Enforce encryption-at-rest
-    if (head.ServerSideEncryption !== 'AES256') {
-      throw new BadRequestException('Uploaded file is not encrypted');
-    }
-
-    // S3 metadata keys are lowercased
-    const metaLeadId = head.Metadata?.['lead-id'];
-    if (metaLeadId !== leadId) {
-      throw new BadRequestException('Uploaded file does not belong to lead');
-    }
   }
 }

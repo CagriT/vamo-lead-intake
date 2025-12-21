@@ -7,12 +7,22 @@ export type LeadPictureTokenPayload = {
   scope: LeadPictureScope;
 };
 
+export interface SignForLeadParams {
+  leadId: string;
+}
+
+export interface VerifyTokenParams {
+  token: string;
+}
+
 @Injectable()
 export class LeadPictureTokenService {
   constructor(private readonly jwtService: JwtService) {}
 
   // Signs a short-lived token scoped to a single lead
-  signForLead(leadId: string): string {
+  signForLead(params: SignForLeadParams): string {
+    const { leadId } = params;
+
     return this.jwtService.sign({
       leadId,
       scope: LEAD_PICTURE_SCOPE,
@@ -20,7 +30,8 @@ export class LeadPictureTokenService {
   }
 
   // Verifies token integrity + expiration and returns payload
-  verify(token: string): LeadPictureTokenPayload {
+  verify(params: VerifyTokenParams): LeadPictureTokenPayload {
+    const { token } = params;
     return this.jwtService.verify<LeadPictureTokenPayload>(token);
   }
 }
