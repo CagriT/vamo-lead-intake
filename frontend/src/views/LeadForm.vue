@@ -8,7 +8,6 @@
       {{ submitError }}
     </p>
 
-    <!-- Main form - shown initially and hidden after successful submission -->
     <form v-if="!showImageUpload" class="form-card" @submit.prevent="submit">
       <h1>Ihre Anfrage</h1>
 
@@ -24,49 +23,49 @@
             {{ option.label }}
           </option>
         </select>
-        <span v-if="errors.salutation" class="error">
+        <!-- <span v-if="errors.salutation" class="error">
           {{ errors.salutation }}
-        </span>
+        </span> -->
       </div>
 
       <div class="field">
         <label>Vorname</label>
         <input v-model="form.firstName" type="text" />
-        <span v-if="errors.firstName" class="error">
+        <!-- <span v-if="errors.firstName" class="error">
           {{ errors.firstName }}
-        </span>
+        </span> -->
       </div>
 
       <div class="field">
         <label>Nachname</label>
         <input v-model="form.lastName" type="text" />
-        <span v-if="errors.lastName" class="error">
+        <!-- <span v-if="errors.lastName" class="error">
           {{ errors.lastName }}
-        </span>
+        </span> -->
       </div>
 
       <div class="field">
         <label>Postleitzahl</label>
         <input v-model="form.postalCode" type="text" />
-        <span v-if="errors.postalCode" class="error">
+        <!-- <span v-if="errors.postalCode" class="error">
           {{ errors.postalCode }}
-        </span>
+        </span> -->
       </div>
 
       <div class="field">
         <label>E-Mail</label>
         <input v-model="form.email" type="email" />
-        <span v-if="errors.email" class="error">
+        <!-- <span v-if="errors.email" class="error">
           {{ errors.email }}
-        </span>
+        </span> -->
       </div>
 
       <div class="field">
         <label>Telefon</label>
         <input v-model="form.phone" type="tel" />
-        <span v-if="errors.phone" class="error">
+        <!-- <span v-if="errors.phone" class="error">
           {{ errors.phone }}
-        </span>
+        </span> -->
       </div>
 
       <div class="checkbox-field">
@@ -76,9 +75,9 @@
           <a href="/datenschutz" target="_blank">Datenschutzerklärung</a>
           zur Kenntnis genommen.
         </label>
-        <span v-if="errors.privacyAccepted" class="error">
+        <!-- <span v-if="errors.privacyAccepted" class="error">
           {{ errors.privacyAccepted }}
-        </span>
+        </span> -->
       </div>
 
       <div class="checkbox-field">
@@ -88,28 +87,32 @@
         </label>
       </div>
 
+      <p v-if="showValidationError" class="error">
+        Bitte prüfen Sie Ihre Eingaben.
+      </p>
+
       <button type="submit" :disabled="!isFormValid || isSubmitting">
         {{ isSubmitting ? "Wird gesendet..." : "Anfrage senden" }}
       </button>
     </form>
 
-    <!-- Image upload section - shown AFTER form submission succeeds -->
     <div v-if="showImageUpload" class="form-card">
-      <h2>Bild hochladen (optional)</h2>
+      <h2>Bilder hochladen (optional)</h2>
       <p class="info-text">
-        Sie können optional ein Bild hochladen. Dies ist nicht erforderlich.
+        Sie können optional Bilder hochladen. Dies ist nicht erforderlich.
       </p>
 
       <div class="field">
-        <label>Bild auswählen</label>
+        <label>Bilder auswählen</label>
         <input
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          multiple
           @change="handleImageSelect"
-          :disabled="isUploadingImage"
+          :disabled="isUploadingImages"
         />
-        <span v-if="selectedImage" class="image-preview">
-          Ausgewählt: {{ selectedImage.name }}
+        <span v-if="selectedImages.length" class="image-preview">
+          Ausgewählt: {{ selectedImages.length }} Datei(en)
         </span>
         <span v-if="imageUploadError" class="error">
           {{ imageUploadError }}
@@ -118,17 +121,17 @@
 
       <button
         type="button"
-        @click="uploadImage"
-        :disabled="!selectedImage || isUploadingImage"
+        @click="uploadImages"
+        :disabled="selectedImages.length === 0 || isUploadingImages"
         class="upload-button"
       >
-        {{ isUploadingImage ? "Wird hochgeladen..." : "Bild hochladen" }}
+        {{ isUploadingImages ? "Wird hochgeladen..." : "Bilder hochladen" }}
       </button>
 
       <button
         type="button"
         @click="skipImageUpload"
-        :disabled="isUploadingImage"
+        :disabled="isUploadingImages"
         class="skip-button"
       >
         Überspringen
@@ -138,21 +141,30 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { reactive, ref, watch } from "vue";
 import { useLeadValidation } from "@/composables/useLeadValidation";
-import { createLead, uploadImageToS3, updateLeadWithImage } from "@/api/leads";
+import {
+  createLead,
+  presignPicture,
+  uploadImageToS3,
+  attachPictureToLead,
+} from "@/api/leads";
 import { CreateLeadPayload } from "@/types/leads";
+
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
 const isSubmitting = ref<boolean>(false);
 const submitSuccess = ref<boolean>(false);
 const submitError = ref<string>("");
 const showImageUpload = ref<boolean>(false);
-const selectedImage = ref<File | null>(null);
-const isUploadingImage = ref<boolean>(false);
+
+const selectedImages = ref<File[]>([]);
+const isUploadingImages = ref<boolean>(false);
 const imageUploadError = ref<string>("");
+const showValidationError = ref(false);
+
 const currentLeadId = ref<string>("");
-const currentUploadUrl = ref<string>("");
-const currentPublicUrl = ref<string>("");
+const currentPictureToken = ref<string>("");
 
 const form = reactive({
   salutation: "",
@@ -164,7 +176,16 @@ const form = reactive({
   privacyAccepted: false,
   newsletterSingleOptIn: false,
 });
-const { errors, isFormValid } = useLeadValidation(form);
+
+watch(
+  () => ({ ...form }),
+  () => {
+    showValidationError.value = false;
+  },
+  { deep: true }
+);
+
+const { /*  errors, */ isFormValid } = useLeadValidation(form);
 
 const salutationOptions = [
   { label: "Herr", value: "MALE" },
@@ -174,15 +195,47 @@ const salutationOptions = [
 
 function handleImageSelect(event: Event): void {
   const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    selectedImage.value = target.files[0];
-    imageUploadError.value = "";
+  const files = target.files ? Array.from(target.files) : [];
+
+  if (files.length === 0) return;
+
+  const validFiles: File[] = [];
+  for (const file of files) {
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      imageUploadError.value = "Datei ist zu groß. Maximal 20MB pro Bild.";
+    } else {
+      validFiles.push(file);
+    }
+  }
+
+  if (validFiles.length > 0) {
+    selectedImages.value = [...selectedImages.value, ...validFiles];
+    if (validFiles.length === files.length) {
+      imageUploadError.value = "";
+    }
   }
 }
 
-async function submit(): Promise<void> {
-  if (!isFormValid.value) return;
+function resetForm(): void {
+  form.salutation = "";
+  form.firstName = "";
+  form.lastName = "";
+  form.postalCode = "";
+  form.email = "";
+  form.phone = "";
+  form.privacyAccepted = false;
+  form.newsletterSingleOptIn = false;
 
+  selectedImages.value = [];
+  currentLeadId.value = "";
+  currentPictureToken.value = "";
+}
+
+async function submit(): Promise<void> {
+  if (!isFormValid.value) {
+    showValidationError.value = true;
+    return;
+  }
   isSubmitting.value = true;
   submitError.value = "";
 
@@ -197,11 +250,9 @@ async function submit(): Promise<void> {
   };
 
   try {
-    const { leadId, uploadUrl, publicUrl } = await createLead(payload);
-
+    const { leadId, pictureToken } = await createLead(payload);
     currentLeadId.value = leadId;
-    currentUploadUrl.value = uploadUrl;
-    currentPublicUrl.value = publicUrl;
+    currentPictureToken.value = pictureToken;
 
     submitSuccess.value = true;
     showImageUpload.value = true;
@@ -212,29 +263,56 @@ async function submit(): Promise<void> {
   }
 }
 
-async function uploadImage(): Promise<void> {
-  if (!selectedImage.value || !currentUploadUrl.value) return;
+async function uploadImages(): Promise<void> {
+  if (
+    !currentLeadId.value ||
+    !currentPictureToken.value ||
+    selectedImages.value.length === 0
+  )
+    return;
 
-  isUploadingImage.value = true;
+  isUploadingImages.value = true;
   imageUploadError.value = "";
 
   try {
-    await uploadImageToS3(currentUploadUrl.value, selectedImage.value);
-    await updateLeadWithImage(currentLeadId.value, currentPublicUrl.value);
+    for (const file of selectedImages.value) {
+      const presign = await presignPicture(
+        currentLeadId.value,
+        {
+          fileName: file.name,
+          contentType: file.type,
+        },
+        currentPictureToken.value
+      );
+
+      await uploadImageToS3(presign.url, presign.fields, file);
+
+      await attachPictureToLead(
+        currentLeadId.value,
+        {
+          key: presign.key,
+          mimeType: file.type,
+          originalName: file.name,
+        },
+        currentPictureToken.value
+      );
+    }
 
     showImageUpload.value = false;
     submitSuccess.value = true;
+    resetForm();
   } catch (err) {
     imageUploadError.value =
       "Bild-Upload fehlgeschlagen. Bitte erneut versuchen.";
   } finally {
-    isUploadingImage.value = false;
+    isUploadingImages.value = false;
   }
 }
 
 function skipImageUpload(): void {
   showImageUpload.value = false;
   submitSuccess.value = true;
+  resetForm();
 }
 </script>
 

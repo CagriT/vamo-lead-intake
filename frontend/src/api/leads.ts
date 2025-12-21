@@ -1,13 +1,17 @@
 import {
   CreateLeadPayload,
   CreateLeadResponse,
-  ImageUploadResponse,
+  PresignPictureRequest,
+  PresignPictureResponse,
+  AttachPictureRequest,
 } from "@/types/leads";
+
+const API_BASE = "http://localhost:3000";
 
 export async function createLead(
   payload: CreateLeadPayload
 ): Promise<CreateLeadResponse> {
-  const response = await fetch("http://localhost:3000/leads", {
+  const response = await fetch(`${API_BASE}/leads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -18,45 +22,44 @@ export async function createLead(
   }
 
   const data = await response.json();
-  return {
-    leadId: data.leadId,
-    uploadUrl: data.uploadUrl,
-    publicUrl: data.publicUrl,
-  };
+  return { leadId: data.leadId, pictureToken: data.pictureToken };
 }
 
-// Optional: Keep this for regenerating URLs with actual filename
-export async function getImageUploadUrl(
+export async function presignPicture(
   leadId: string,
-  fileName: string,
-  contentType: string
-): Promise<ImageUploadResponse> {
-  const response = await fetch(
-    `http://localhost:3000/leads/${leadId}/image-upload-url?fileName=${encodeURIComponent(
-      fileName
-    )}&contentType=${encodeURIComponent(contentType)}`,
-    {
-      method: "POST",
-    }
-  );
+  payload: PresignPictureRequest,
+  pictureToken: string
+): Promise<PresignPictureResponse> {
+  const response = await fetch(`${API_BASE}/leads/${leadId}/pictures/presign`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${pictureToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to get upload URL");
+    throw new Error("Failed to get presigned POST");
   }
 
   return response.json();
 }
 
 export async function uploadImageToS3(
-  uploadUrl: string,
+  url: string,
+  fields: Record<string, string>,
   file: File
 ): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type,
-    },
-    body: file,
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+  formData.append("file", file);
+
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData,
   });
 
   if (!response.ok) {
@@ -64,17 +67,21 @@ export async function uploadImageToS3(
   }
 }
 
-export async function updateLeadWithImage(
+export async function attachPictureToLead(
   leadId: string,
-  imageUrl: string
+  payload: AttachPictureRequest,
+  pictureToken: string
 ): Promise<void> {
-  const response = await fetch(`http://localhost:3000/leads/${leadId}/image`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageUrl }),
+  const response = await fetch(`${API_BASE}/leads/${leadId}/pictures`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${pictureToken}`,
+    },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update lead with image");
+    throw new Error("Failed to attach picture to lead");
   }
 }

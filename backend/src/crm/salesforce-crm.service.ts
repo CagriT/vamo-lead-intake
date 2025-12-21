@@ -63,4 +63,18 @@ export class SalesforceCrmService implements CrmService {
     // validation or other errors
     throw new Error('NON_RETRYABLE_ERROR');
   }
+
+  async attachLeadPicture(leadId: string, pictureUrl: string): Promise<void> {
+    try {
+      // TODO: use Salesforce Lead Id or custom field mapping
+      console.log('🖼️ [SALESFORCE CRM] Attach picture', {
+        leadId,
+        pictureUrl,
+      });
+
+      return;
+    } catch (error: any) {
+      this.handleSalesforceError(error);
+    }
+  }
 }

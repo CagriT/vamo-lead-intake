@@ -7,21 +7,25 @@ import { CrmLeadDto } from '../crm/dto/crm-lead.dto';
 import { CRM_SERVICE } from '../crm/crm.constants';
 import type { CrmService } from '../crm/crm.service';
 import { S3Service } from '../s3/s3.service';
+import { PresignPictureDto } from './dto/presign-picture.dto';
+import { AttachPictureDto } from './dto/attach-picture.dto';
+import { LeadPictureTokenService } from './lead-picture-token.service';
 
 interface CreateLeadResponse {
   success: boolean;
   message: string;
   leadId: string;
-  uploadUrl: string;
-  publicUrl: string;
+  pictureToken: string;
 }
 
-interface ImageUploadUrlResponse {
-  uploadUrl: string;
-  publicUrl: string;
+interface PresignPictureResponse {
+  url: string;
+  fields: Record<string, string>;
+  accessUrl: string;
+  key: string;
 }
 
-interface UpdateLeadImageResponse {
+interface AttachPictureResponse {
   success: boolean;
   message: string;
 }
@@ -36,13 +40,10 @@ export class LeadsService {
     private readonly crmService: CrmService,
 
     private readonly s3Service: S3Service,
+    private readonly leadPictureTokenService: LeadPictureTokenService,
   ) {}
 
-  /**
-   * Creates a new lead in MongoDB and generates S3 presigned URLs for image upload.
-   * @param dto - Lead data from the request
-   * @returns Promise with lead ID and S3 upload URLs
-   */
+  // Creates the lead and returns a short-lived token for picture upload
   async createLead(dto: CreateLeadDto): Promise<CreateLeadResponse> {
     const lead = new this.leadModel(dto);
     await lead.save();
@@ -58,70 +59,37 @@ export class LeadsService {
 
     await this.crmService.createLead(crmLead);
 
-    // Generate presigned URLs proactively when lead is created
-    // We use a placeholder filename - frontend will use the actual filename when uploading
-    // The key structure will be: leads/{leadId}/{timestamp}-{actualFileName}
     const leadId = lead._id.toString();
-    const timestamp = Date.now();
-    const genericFileName = `image-${timestamp}.jpg`; // Generic filename with timestamp
-    const defaultContentType = 'image/jpeg';
-
-    const { uploadUrl, publicUrl } =
-      await this.s3Service.generatePresignedUploadUrl(
-        leadId,
-        genericFileName,
-        defaultContentType,
-      );
+    const pictureToken = this.leadPictureTokenService.signForLead(leadId);
 
     return {
       success: true,
       message: 'Lead successfully created',
       leadId,
-      uploadUrl, // Presigned URL for uploading image (expires in 1 hour)
-      publicUrl, // Public URL where image will be accessible
+      pictureToken,
     };
   }
 
-  /**
-   * Generates new presigned URLs for image upload with a specific filename.
-   * Useful if frontend wants to regenerate URLs with the actual filename.
-   * @param leadId - MongoDB ObjectId of the lead
-   * @param fileName - Actual filename from the user's file
-   * @param contentType - MIME type of the image (e.g., 'image/jpeg', 'image/png')
-   * @returns Promise with presigned upload URL and public URL
-   */
-  async generateImageUploadUrl(
+  // Generates presigned POST + GET URLs for a specific image
+  async presignPicture(
     leadId: string,
-    fileName: string,
-    contentType: string,
-  ): Promise<ImageUploadUrlResponse> {
-    const { uploadUrl, publicUrl } =
-      await this.s3Service.generatePresignedUploadUrl(
-        leadId,
-        fileName,
-        contentType,
-      );
-
-    return {
-      uploadUrl,
-      publicUrl,
-    };
+    body: PresignPictureDto,
+  ): Promise<PresignPictureResponse> {
+    return this.s3Service.generatePresignedUploadUrl(
+      leadId,
+      body.fileName,
+      body.contentType,
+    );
   }
 
-  /**
-   * Updates a lead document with the public S3 URL of the uploaded image.
-   * @param leadId - MongoDB ObjectId of the lead
-   * @param imageUrl - Public S3 URL where the image is accessible
-   * @returns Promise with success status
-   * @throws Error if lead is not found
-   */
-  async updateLeadWithImage(
+  // Stores picture metadata and forwards a fresh access URL to CRM
+  async attachPicture(
     leadId: string,
-    imageUrl: string,
-  ): Promise<UpdateLeadImageResponse> {
+    body: AttachPictureDto,
+  ): Promise<AttachPictureResponse> {
     const lead = await this.leadModel.findByIdAndUpdate(
       leadId,
-      { imageUrl },
+      { $push: { pictures: body } },
       { new: true },
     );
 
@@ -129,10 +97,16 @@ export class LeadsService {
       throw new Error('Lead not found');
     }
 
+    // Ensure the S3 object exists and matches our size/type/encryption rules
+    await this.s3Service.verifyUploadedObject(body.key, body.mimeType, leadId);
+
+    const accessUrl = await this.s3Service.generatePresignedGetUrl(body.key);
+    // In production, map to the Salesforce Lead Id stored on the lead
+    await this.crmService.attachLeadPicture(leadId, accessUrl);
+
     return {
       success: true,
-      message: 'Lead image updated successfully',
-      // lead,
+      message: 'Picture attached',
     };
   }
 }

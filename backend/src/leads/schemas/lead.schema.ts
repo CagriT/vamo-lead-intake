@@ -3,6 +3,12 @@ import { Document } from 'mongoose';
 
 export type LeadDocument = Lead & Document;
 
+export type LeadPicture = {
+  key: string;
+  mimeType: string;
+  originalName: string;
+};
+
 @Schema({ timestamps: true, collection: 'leads' })
 export class Lead {
   @Prop({ required: true })
@@ -26,8 +32,17 @@ export class Lead {
   @Prop({ type: Boolean, required: false })
   newsletterSingleOptIn: boolean;
 
-  @Prop({ type: String, required: false })
-  imageUrl: string;
+  @Prop({
+    type: [
+      {
+        key: { type: String, required: true },
+        mimeType: { type: String, required: true },
+        originalName: { type: String, required: true },
+      },
+    ],
+    default: [],
+  })
+  pictures: LeadPicture[];
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);

@@ -8,13 +8,25 @@ export interface CreateLeadPayload {
   newsletterSingleOptIn: boolean;
 }
 
-export interface ImageUploadResponse {
-  uploadUrl: string;
-  publicUrl: string;
-}
-
 export interface CreateLeadResponse {
   leadId: string;
-  uploadUrl: string;
-  publicUrl: string;
+  pictureToken: string;
+}
+
+export interface PresignPictureRequest {
+  fileName: string;
+  contentType: string;
+}
+
+export interface PresignPictureResponse {
+  url: string;
+  fields: Record<string, string>;
+  accessUrl: string;
+  key: string;
+}
+
+export interface AttachPictureRequest {
+  key: string;
+  mimeType: string;
+  originalName: string;
 }

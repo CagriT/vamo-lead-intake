@@ -8,4 +8,7 @@ export class FakeCrmService implements CrmService {
     console.log('📨 [FAKE CRM] Lead sent to CRM:');
     console.log(JSON.stringify(lead, null, 2));
   }
+  async attachLeadPicture(leadId: string, pictureUrl: string): Promise<void> {
+    console.log('🖼️ [FAKE CRM] Picture attached:', { leadId, pictureUrl });
+  }
 }
