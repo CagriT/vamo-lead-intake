@@ -1,8 +1,8 @@
 // src/composables/useImageState.ts
 import { ref } from "vue";
-import { MAX_FILE_SIZE_BYTES } from "@/constants";
 
 export type ImageState = ReturnType<typeof useImageState>;
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export function useImageState() {
   const selectedImages = ref<File[]>([]);

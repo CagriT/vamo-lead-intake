@@ -6,15 +6,14 @@ import {
   hasDraft,
   type OfflineDraft,
 } from "@/utils/offline-draft";
-import type { CreateLeadPayload, OfflineImageRecord } from "@/types/leads";
+import type { CreateLeadPayload } from "@/types/leads";
 
-function filesToImageRecords(files: File[]): OfflineImageRecord[] {
-  return files.map((file) => ({
-    id: crypto.randomUUID(),
-    fileName: file.name,
-    mimeType: file.type,
-    blob: file,
-  }));
+function recordToFile(record: {
+  blob: Blob;
+  fileName: string;
+  mimeType: string;
+}): File {
+  return new File([record.blob], record.fileName, { type: record.mimeType });
 }
 
 export function useOfflineDraft() {
@@ -26,7 +25,7 @@ export function useOfflineDraft() {
     hasOfflineDraft.value = await hasDraft();
   }
 
-  // Create draft (form submit offline)
+  // Create/overwrite draft (form submit offline OR online meta persistence)
   async function saveOffline(
     payload: CreateLeadPayload,
     files: File[],
@@ -38,8 +37,13 @@ export function useOfflineDraft() {
     try {
       await saveDraft(payload, files, leadMeta);
       hasOfflineDraft.value = true;
-    } catch {
-      draftError.value = "Offline speichern fehlgeschlagen.";
+    } catch (e) {
+      if (e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED") {
+        draftError.value =
+          "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen.";
+      } else {
+        draftError.value = "Offline speichern fehlgeschlagen.";
+      }
     } finally {
       isSavingDraft.value = false;
     }
@@ -54,21 +58,40 @@ export function useOfflineDraft() {
 
     try {
       const draft = await getDraft();
-      if (!draft) return;
+      if (!draft) {
+        // If user somehow lands on image step without draft, create minimal draft from files only
+        if (!draft) {
+          throw new Error("NO_DRAFT");
+        }
+        hasOfflineDraft.value = true;
+        return;
+      }
 
-      const newImages = filesToImageRecords(files);
+      // Convert existing OfflineImageRecord[] -> File[]
+      const existingFiles = draft.images.map((img) =>
+        recordToFile({
+          blob: img.blob,
+          fileName: img.fileName,
+          mimeType: img.mimeType,
+        })
+      );
 
-      const updatedDraft: OfflineDraft = {
-        ...draft,
-        images: [...draft.images, ...newImages],
-      };
+      const mergedFiles = [...existingFiles, ...files];
 
-      await saveDraft(updatedDraft.formData, []); // overwrite metadata
-      await saveDraft(updatedDraft.formData, updatedDraft.images as any);
+      // Save once: saveDraft will preserve createdAt + leadId/pictureToken internally
+      await saveDraft(draft.formData, mergedFiles);
 
       hasOfflineDraft.value = true;
-    } catch {
-      draftError.value = "Offline Bilder speichern fehlgeschlagen.";
+    } catch (e) {
+      if (e instanceof Error && e.message === "NO_DRAFT") {
+        draftError.value =
+          "Keine Offline-Anfrage gefunden. Bitte Formular erneut senden.";
+      } else if (e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED") {
+        draftError.value =
+          "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen.";
+      } else {
+        draftError.value = "Offline Bilder speichern fehlgeschlagen.";
+      }
     } finally {
       isSavingDraft.value = false;
     }

@@ -18,6 +18,7 @@ export function useLeadFlow() {
   const step = ref<Step>("form");
   const submitSuccess = ref(false);
   const displayError = ref("");
+  const isSubmitting = ref(false);
 
   // Persisted lead identity (CRITICAL FIX)
   const leadId = ref<string | null>(null);
@@ -52,6 +53,7 @@ export function useLeadFlow() {
     formState.showValidationError.value = true;
 
     if (!formState.isFormValid.value) return;
+    isSubmitting.value = true;
 
     try {
       const payload = formState.buildPayload();
@@ -69,7 +71,7 @@ export function useLeadFlow() {
       leadId.value = res.leadId;
       pictureToken.value = res.pictureToken;
 
-      // 🔐 CRITICAL: persist identity for later offline usage
+      // CRITICAL: persist identity for later offline usage
       await offlineDraft.saveOffline(payload, [], {
         leadId: res.leadId,
         pictureToken: res.pictureToken,
@@ -78,6 +80,8 @@ export function useLeadFlow() {
       step.value = "images";
     } catch {
       displayError.value = "Senden fehlgeschlagen.";
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
@@ -91,7 +95,23 @@ export function useLeadFlow() {
       return;
     }
 
+    // ONLINE
     const draft = await offlineDraft.loadDraft();
+    const hasNewImages = imageState.selectedImages.value.length > 0;
+
+    // ✅ Only sync form-only draft if user did NOT select new images
+    if (draft && draft.images.length === 0 && !hasNewImages) {
+      try {
+        if (!draft.leadId || !draft.pictureToken) {
+          await createLead({ payload: draft.formData });
+        }
+        await offlineDraft.clearOffline();
+        submitSuccess.value = true;
+      } catch {
+        displayError.value = "Lead konnte nicht synchronisiert werden.";
+      }
+      return;
+    }
 
     // 1️⃣ Upload offline images first (if any)
     if (draft && draft.images.length > 0) {
@@ -99,7 +119,7 @@ export function useLeadFlow() {
     }
 
     // 2️⃣ Upload newly selected images (if any)
-    if (imageState.selectedImages.value.length > 0) {
+    if (hasNewImages) {
       await uploadImagesOnline();
     }
   }
@@ -117,30 +137,6 @@ export function useLeadFlow() {
       submitSuccess.value = true;
     } catch {
       displayError.value = "Bild-Upload fehlgeschlagen.";
-    } finally {
-      imageState.isUploadingImages.value = false;
-    }
-  }
-
-  async function uploadOfflineImages(): Promise<void> {
-    if (!leadId.value || !pictureToken.value) return;
-
-    imageState.isUploadingImages.value = true;
-    try {
-      const draft = await offlineDraft.loadDraft();
-      if (!draft) return;
-
-      for (const img of draft.images) {
-        const file = new File([img.blob], img.fileName, {
-          type: img.mimeType,
-        });
-        await uploadSingleImage(file);
-      }
-
-      await offlineDraft.clearOffline();
-      submitSuccess.value = true;
-    } catch {
-      displayError.value = "Offline-Bilder konnten nicht hochgeladen werden.";
     } finally {
       imageState.isUploadingImages.value = false;
     }
@@ -235,19 +231,23 @@ export function useLeadFlow() {
   }
 
   async function saveImagesOffline(): Promise<void> {
-    try {
-      const payload = formState.buildPayload();
-      await offlineDraft.saveOffline(payload, imageState.selectedImages.value);
-      imageState.clearSelected();
-    } catch {
-      displayError.value = "Offline speichern fehlgeschlagen.";
+    await offlineDraft.appendImagesOffline(imageState.selectedImages.value);
+
+    if (offlineDraft.draftError.value) {
+      displayError.value = offlineDraft.draftError.value;
+      return;
     }
+
+    imageState.clearSelected();
   }
 
   // Skip / reset
-  function skipImages(): void {
+  async function skipImages(): Promise<void> {
     imageState.clearSelected();
     submitSuccess.value = true;
+
+    await offlineDraft.clearOffline(); // clear IndexedDB draft
+
     step.value = "form";
     formState.resetForm();
     leadId.value = null;
@@ -263,6 +263,7 @@ export function useLeadFlow() {
     step,
     submitSuccess,
     displayError,
+    isSubmitting,
 
     form: formState.form,
     errors: formState.errors,

@@ -14,12 +14,16 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 3000;
+  const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((o) =>
+    o.trim(),
+  ) ?? ['http://localhost:5173'];
 
   // Trust proxy for correct client IP in rate limiting
   app.set('trust proxy', 1);
   app.use(helmet());
+
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: corsOrigins,
     methods: ['GET', 'POST'],
     credentials: false,
     allowedHeaders: ['Content-Type', 'Authorization'],

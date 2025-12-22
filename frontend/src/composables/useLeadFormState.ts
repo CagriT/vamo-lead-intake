@@ -1,8 +1,8 @@
 // src/composables/useLeadFormState.ts
 import { computed, reactive, ref, watch } from "vue";
 import { CreateLeadPayload } from "@/types/leads";
-import { EMAIL_REGEX } from "@/constants";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const postalCodeRegex = /^\d{5}$/;
 const germanPhoneRegex = /^(\+49|0)[0-9\s\-()]{6,}$/;
 

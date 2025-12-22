@@ -113,8 +113,8 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" :disabled="!isSubmitEnabled">
-          Anfrage senden
+        <button type="submit" :disabled="!isSubmitEnabled || isSubmitting">
+          {{ isSubmitting ? "Wird gesendet..." : "Anfrage senden" }}
         </button>
       </div>
     </form>
@@ -139,13 +139,12 @@
         hochgeladen werden.
       </p>
 
-      <div class="field">
+      <div v-if="isMobile" class="field">
         <label>Foto aufnehmen (Kamera)</label>
         <input
           type="file"
           :accept="IMAGE_ACCEPT_TYPES"
           capture="environment"
-          multiple
           @change="onSelectFiles"
           :disabled="isUploadingImages"
         />
@@ -188,7 +187,9 @@
 
 <script setup lang="ts">
 import { useLeadFlow } from "@/composables/useLeadFlow";
-import { IMAGE_ACCEPT_TYPES } from "@/constants";
+
+const IMAGE_ACCEPT_TYPES =
+  "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
 const salutationOptions = [
   { label: "Herr", value: "MALE" },
@@ -199,6 +200,7 @@ const {
   step,
   form,
   errors,
+  isSubmitting,
   showValidationError,
   isSubmitEnabled,
   submitSuccess,
@@ -223,6 +225,8 @@ function onSelectFiles(event: Event) {
     selectImages(files);
   }
 }
+
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 </script>
 
 <style scoped src="./LeadForm.css"></style>

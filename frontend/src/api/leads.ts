@@ -6,7 +6,9 @@ import {
   PresignPictureResponse,
   UploadImageParams,
 } from "@/types/leads";
-import { API_BASE_URL } from "@/constants";
+
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 export async function createLead(
   params: CreateLeadParams

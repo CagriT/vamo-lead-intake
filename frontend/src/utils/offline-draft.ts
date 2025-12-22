@@ -4,6 +4,9 @@ const DB_NAME = "vamo-offline";
 const DB_VERSION = 2;
 const STORE_NAME = "draft";
 
+// Total offline draft cap (images stored in IndexedDB)
+const OFFLINE_DRAFT_MAX_BYTES = 20 * 1024 * 1024; // 20MB
+
 export interface OfflineDraft {
   formData: CreateLeadPayload;
   images: OfflineImageRecord[];
@@ -41,14 +44,27 @@ function fileToRecord(file: File): OfflineImageRecord {
   };
 }
 
+function sumExistingBytes(images: OfflineImageRecord[] | undefined): number {
+  if (!images) return 0;
+  return images.reduce((sum, img) => sum + (img.blob?.size ?? 0), 0);
+}
+
 export async function saveDraft(
   payload: CreateLeadPayload,
   files: File[],
   leadMeta?: { leadId: string; pictureToken: string }
 ): Promise<void> {
-  const db = await openDb();
-
   const existing = await getDraft();
+
+  // Enforce storage limit: existing images + new files
+  const existingBytes = sumExistingBytes(existing?.images);
+  const newBytes = files.reduce((sum, f) => sum + f.size, 0);
+
+  if (existingBytes + newBytes > OFFLINE_DRAFT_MAX_BYTES) {
+    throw new Error("OFFLINE_QUOTA_EXCEEDED");
+  }
+
+  const db = await openDb();
 
   const draft: OfflineDraft = {
     formData: payload,
