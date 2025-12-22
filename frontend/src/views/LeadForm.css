@@ -1,0 +1,221 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 16px;
+}
+
+.status-bar {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.status-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: white;
+}
+
+.status-pill.online {
+  background: #2e7d32;
+}
+
+.status-pill.offline {
+  background: #b00020;
+}
+
+.status-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.status-banner {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 8px 0 12px;
+}
+
+.status-banner.online {
+  background: #e6f4ea;
+  color: #1b5e20;
+  border: 1px solid #c8e6c9;
+}
+
+.status-banner.offline {
+  background: #fdecea;
+  color: #8a1c1c;
+  border: 1px solid #f5c6cb;
+}
+
+.queue-text {
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 8px;
+}
+
+.form-card {
+  width: 100%;
+  max-width: 860px;
+  background: var(--off-white);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.grid-fields {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .grid-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+h1 {
+  margin-bottom: 24px;
+  font-size: 24px;
+}
+
+h2 {
+  margin-bottom: 16px;
+  font-size: 20px;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  font-size: 14px;
+  margin-bottom: 3px;
+  text-align: left;
+}
+
+input,
+select {
+  padding: 12px;
+  font-size: 16px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-error {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  font-size: 12px;
+  color: #b00020;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.form-actions button {
+  margin-top: 16px;
+  width: min(320px, 100%);
+  padding: 14px;
+  font-size: 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.form-actions button:disabled {
+  background: #9fb89f;
+  cursor: not-allowed;
+}
+
+.upload-button {
+  margin-top: 16px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.upload-button:disabled {
+  background: #9fb89f;
+  cursor: not-allowed;
+}
+
+.skip-button {
+  background: #666;
+  margin-top: 8px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.success {
+  color: #2e7d32;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.error {
+  color: #b00020;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.info-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.checkbox-field {
+  position: relative;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.checkbox-field label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.checkbox-field input {
+  margin-top: 3px;
+}
+
+.image-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}

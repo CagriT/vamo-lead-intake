@@ -63,3 +63,41 @@ export interface LeadFormValues {
   privacyAccepted: boolean;
   newsletterSingleOptIn?: boolean;
 }
+
+export type OfflineSyncStatus = "pending" | "uploading" | "synced" | "failed";
+
+export interface OfflineImageRecord {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  blob: Blob;
+}
+
+export interface OfflineLeadRecord {
+  id: string;
+  formData: CreateLeadPayload;
+  images: OfflineImageRecord[];
+  status: OfflineSyncStatus;
+  createdAt: number;
+  lastError?: string;
+}
+
+export interface SavePendingLeadParams {
+  formData: CreateLeadPayload;
+  images: File[];
+}
+
+export interface AppendImagesToPendingLeadParams {
+  id: string;
+  images: File[];
+}
+
+export interface UpdateLeadStatusParams {
+  id: string;
+  status: OfflineSyncStatus;
+  lastError?: string;
+}
+
+export interface DeletePendingLeadParams {
+  id: string;
+}
