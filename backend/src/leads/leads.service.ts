@@ -42,7 +42,10 @@ export class LeadsService {
       salutation: dto.salutation,
     };
 
-    await this.crmService.createLead({ lead: crmLead });
+    // Fire-and-forget CRM sync (eventual consistency)
+    this.crmService.createLead({ lead: crmLead }).catch((err) => {
+      console.log('CRM lead sync failed', err);
+    });
 
     const leadId = lead._id.toString();
     const pictureToken = this.leadPictureTokenService.signForLead({ leadId });
@@ -72,6 +75,14 @@ export class LeadsService {
   ): Promise<AttachPictureResponse> {
     const { leadId, body } = params;
 
+    // 1️⃣ Verify S3 object FIRST
+    await this.s3Service.verifyUploadedObject({
+      key: body.key,
+      expectedContentType: body.mimeType,
+      leadId,
+    });
+
+    // 2️⃣ Only now write to Mongo
     const lead = await this.leadModel.findByIdAndUpdate(
       leadId,
       { $push: { pictures: body } },
@@ -82,15 +93,9 @@ export class LeadsService {
       throw new Error('Lead not found');
     }
 
-    // Ensure the S3 object exists and matches our size/type/encryption rules
-    await this.s3Service.verifyUploadedObject({
-      key: body.key,
-      expectedContentType: body.mimeType,
-      leadId,
-    });
-
+    // 3️⃣ Generate signed GET URL and forward to CRM
     const accessUrl = await this.s3Service.generatePresignedGetUrl(body.key);
-    // In production, map to the Salesforce Lead Id stored on the lead
+
     await this.crmService.attachLeadPicture({
       leadId,
       pictureUrl: accessUrl,

@@ -43,14 +43,19 @@ function fileToRecord(file: File): OfflineImageRecord {
 
 export async function saveDraft(
   payload: CreateLeadPayload,
-  files: File[]
+  files: File[],
+  leadMeta?: { leadId: string; pictureToken: string }
 ): Promise<void> {
   const db = await openDb();
+
+  const existing = await getDraft();
 
   const draft: OfflineDraft = {
     formData: payload,
     images: files.map(fileToRecord),
-    createdAt: Date.now(),
+    createdAt: existing?.createdAt ?? Date.now(),
+    leadId: leadMeta?.leadId ?? existing?.leadId,
+    pictureToken: leadMeta?.pictureToken ?? existing?.pictureToken,
   };
 
   return new Promise((resolve, reject) => {

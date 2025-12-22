@@ -47,7 +47,7 @@ export function useLeadFlow() {
 
   // Form submit
   async function submitForm(): Promise<void> {
-    submitSuccess.value = false; // reset success state
+    submitSuccess.value = false;
     displayError.value = "";
     formState.showValidationError.value = true;
 
@@ -56,15 +56,24 @@ export function useLeadFlow() {
     try {
       const payload = formState.buildPayload();
 
+      // OFFLINE → save form only
       if (!network.isOnline.value) {
         await offlineDraft.saveOffline(payload, []);
         step.value = "images";
         return;
       }
 
+      // ONLINE → create lead
       const res = await createLead({ payload });
+
       leadId.value = res.leadId;
       pictureToken.value = res.pictureToken;
+
+      // 🔐 CRITICAL: persist identity for later offline usage
+      await offlineDraft.saveOffline(payload, [], {
+        leadId: res.leadId,
+        pictureToken: res.pictureToken,
+      });
 
       step.value = "images";
     } catch {
@@ -74,6 +83,7 @@ export function useLeadFlow() {
 
   // Primary action
   async function primaryAction(): Promise<void> {
+    // OFFLINE → save only
     if (!network.isOnline.value) {
       if (imageState.selectedImages.value.length > 0) {
         await saveImagesOffline();
@@ -81,12 +91,14 @@ export function useLeadFlow() {
       return;
     }
 
-    // ONLINE: upload offline images first (if any)
-    if (offlineDraft.hasOfflineDraft.value) {
-      await uploadOfflineImages();
+    const draft = await offlineDraft.loadDraft();
+
+    // 1️⃣ Upload offline images first (if any)
+    if (draft && draft.images.length > 0) {
+      await uploadOfflineDraftImages();
     }
 
-    // then upload newly selected images (if any)
+    // 2️⃣ Upload newly selected images (if any)
     if (imageState.selectedImages.value.length > 0) {
       await uploadImagesOnline();
     }
@@ -163,6 +175,65 @@ export function useLeadFlow() {
     });
   }
 
+  async function uploadOfflineDraftImages(): Promise<void> {
+    imageState.isUploadingImages.value = true;
+    displayError.value = "";
+
+    try {
+      const draft = await offlineDraft.loadDraft();
+      if (!draft || draft.images.length === 0) return;
+
+      // 1️⃣ Create lead ONCE and persist identity
+      if (draft.leadId && draft.pictureToken) {
+        leadId.value = draft.leadId;
+        pictureToken.value = draft.pictureToken;
+      } else {
+        const res = await createLead({ payload: draft.formData });
+        leadId.value = res.leadId;
+        pictureToken.value = res.pictureToken;
+      }
+
+      // 2️⃣ Upload all offline images
+      for (const img of draft.images) {
+        const file = new File([img.blob], img.fileName, {
+          type: img.mimeType,
+        });
+
+        const presign = await presignPicture({
+          leadId: leadId.value,
+          pictureToken: pictureToken.value,
+          payload: {
+            fileName: file.name,
+            contentType: file.type,
+          },
+        });
+
+        await uploadImageToS3({
+          url: presign.url,
+          fields: presign.fields,
+          file,
+        });
+
+        await attachPictureToLead({
+          leadId: leadId.value,
+          pictureToken: pictureToken.value,
+          payload: {
+            key: presign.key,
+            mimeType: file.type,
+            originalName: file.name,
+          },
+        });
+      }
+
+      // 3️⃣ Cleanup
+      await offlineDraft.clearOffline();
+    } catch {
+      displayError.value = "Offline-Bilder konnten nicht hochgeladen werden.";
+    } finally {
+      imageState.isUploadingImages.value = false;
+    }
+  }
+
   async function saveImagesOffline(): Promise<void> {
     try {
       const payload = formState.buildPayload();
@@ -209,6 +280,7 @@ export function useLeadFlow() {
     primaryButtonDisabled,
 
     submitForm,
+    uploadOfflineDraftImages,
     primaryAction,
     skipImages,
     selectImages: imageState.addFiles,
