@@ -1,5 +1,58 @@
-# Vue 3 + TypeScript + Vite
+# Frontend (Vue + Vite) – Vamo Leads
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue application with:
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+- Lead form submission
+- Optional image upload
+- Offline support using IndexedDB (single draft)
+
+---
+
+## What the UI does
+
+### Step 1: Form
+
+- Validates required fields
+- Submits the lead online (or stores it offline if no internet)
+
+### Step 2: Images (optional)
+
+- User can upload images online
+- If offline, images are stored locally and can be uploaded later
+
+---
+
+## Offline behavior (IndexedDB)
+
+The app stores a **single draft** in IndexedDB:
+
+- `formData`
+- `images[]`
+- optional `leadId` + `pictureToken` (when lead was created online)
+
+Supported flows:
+
+1. Online → submit form → upload images online
+2. Online form submit → go offline → save images locally → go online → click upload
+3. Offline from start → submit form offline → save images locally → go online → click upload (creates lead then uploads)
+
+**Limitation:** Only one draft exists. A second offline submit overwrites the first.
+
+---
+
+## Environment variable
+
+### `VITE_API_BASE_URL`
+
+Controls where the frontend sends API requests.
+This is **build-time** (Vite).
+
+### Local dev (no nginx)
+
+```env
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+```
+
+```
