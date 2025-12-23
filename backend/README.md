@@ -1,9 +1,9 @@
-# Backend (NestJS) – Vamo Leads
+# Backend (NestJS) — Vamo Leads
 
 NestJS API for:
 
-- Lead creation (MongoDB)
-- Presigned S3 uploads for pictures
+- Lead creation (MongoDB via Mongoose)
+- Presigned S3 uploads for pictures (presigned POST)
 - Attaching pictures to a lead
 
 ---
@@ -11,13 +11,15 @@ NestJS API for:
 ## Tech stack
 
 - NestJS
-- MongoDB (Mongoose)
-- AWS S3 (presigned POST upload)
-- Environment validation with Joi
+- MongoDB Atlas (Mongoose)
+- AWS S3 (presigned POST + server-side verification)
+- Env validation: Joi
+- Rate limiting: @nestjs/throttler
+- Input validation: class-validator
 
 ---
 
-## Key endpoints
+## Endpoints
 
 ### Health
 
@@ -26,82 +28,87 @@ NestJS API for:
 ### Lead
 
 - `POST /leads`
-  - Creates a lead
-  - Returns `leadId` and `pictureToken`
+  - Validates input (DTO)
+  - Creates lead in MongoDB
+  - Returns `{ leadId, pictureToken }`
 
 ### Pictures
 
-- `POST /leads/:leadId/pictures/presign`
-  - Returns S3 presigned POST (`url`, `fields`, `key`)
-- `POST /leads/:leadId/pictures`
-  - Attaches picture metadata to the lead after upload
+- `POST /leads/:id/pictures/presign`
+  - Requires `Authorization: Bearer <pictureToken>`
+  - Returns S3 presigned POST: `{ url, fields, key, accessUrl }`
 
-> Note: When running with the Docker/nginx frontend, `/api/*` is proxied to the backend.
-> Example: frontend calls `POST /api/leads` → backend receives `POST /leads`.
+- `POST /leads/:id/pictures`
+  - Requires `Authorization: Bearer <pictureToken>`
+  - Verifies the object exists in S3 (HEAD) and matches constraints
+  - Stores metadata in MongoDB
+  - Forwards a signed GET URL to CRM (FAKE / Salesforce stub)
 
 ---
 
-## Environment variables (REQUIRED)
+## Security model for picture upload
 
-The backend validates env vars at startup (Joi).
-**Missing or invalid values will crash the service.**
+- `pictureToken` is a short-lived JWT scoped to one lead (`lead-pictures`)
+- Guard validates:
+  - token exists + valid
+  - correct scope
+  - leadId in token matches URL param
 
-### Runtime / App
+S3 server-side checks:
 
-- `NODE_ENV` (development|production|test)
-- `PORT` (optional; Heroku provides this automatically)
-- `CORS_ORIGIN`
-  - Comma-separated list of allowed frontend URLs
-  - Example:
-    ```
-    http://localhost:5173,http://localhost:8080
-    ```
+- content-type must match presign request
+- max size limit enforced
+- encryption-at-rest required (AES256)
+- object must include metadata leadId matching the lead
+
+---
+
+## Rate limiting
+
+Throttling is applied per IP:
+
+- leads: limited requests per minute
+- pictures: limited requests per minute
+
+---
+
+## Environment variables (required)
+
+Backend validates env vars at startup (Joi). Missing/invalid values will crash the service.
+
+### Runtime
+
+- `NODE_ENV` = `development | production | test`
+- `PORT` (optional; Heroku provides it)
+- `CORS_ORIGIN` (required)
+  - comma-separated allowlist, **exact origins, no trailing slash**
+  - example:
+    `http://localhost:5173,http://localhost:8080`
 
 ### Database
 
 - `MONGODB_URI`
-  - Local docker: `mongodb://mongo:27017/vamo`
-  - Heroku: MongoDB Atlas connection string
 
-### AWS S3 (required for image uploads)
+### AWS S3
 
 - `AWS_REGION`
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_S3_BUCKET_NAME`
 
-### Picture token (required)
+### Picture token
 
 - `LEAD_PICTURE_TOKEN_SECRET`
-- `LEAD_PICTURE_TOKEN_TTL`
-  - Number (seconds)
-  - Example: `3600`
+- `LEAD_PICTURE_TOKEN_TTL` (seconds)
 
-### CRM (challenge scope)
+### CRM
 
 - `CRM_MODE` = `FAKE` or `SALESFORCE`
-  - Default: `FAKE`
-- Salesforce values required **only if** `CRM_MODE=SALESFORCE`:
+- Salesforce vars required only if `CRM_MODE=SALESFORCE`:
   - `SALESFORCE_CLIENT_ID`
   - `SALESFORCE_CLIENT_SECRET`
   - `SALESFORCE_REDIRECT_URI`
   - `SALESFORCE_LOGIN_URL`
-
----
-
-## Heroku deployment notes
-
-You will run **two backend apps**:
-
-- `vamo-leads-backend-dev`
-- `vamo-leads-backend-prod`
-
-For each backend app, you must set **all required env vars** in the Heroku dashboard.
-
-`CORS_ORIGIN` must match the corresponding frontend app:
-
-- Dev backend → frontend-dev URL
-- Prod backend → frontend-prod URL
 
 ---
 

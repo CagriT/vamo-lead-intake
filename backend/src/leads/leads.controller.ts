@@ -16,7 +16,7 @@ export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 
   @UseGuards(ThrottlerGuard)
-  @Throttle({ leads: { ttl: seconds(60), limit: 5 } })
+  @Throttle({ leads: { ttl: seconds(60), limit: 10 } })
   @Post()
   async createLead(@Body() dto: CreateLeadDto): Promise<CreateLeadResponse> {
     return this.leadsService.createLead(dto);

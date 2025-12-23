@@ -1,16 +1,32 @@
-# Vamo Leads – Full-Stack Challenge
+# Vamo Leads — Full-Stack Challenge (Vue + NestJS)
 
-This repo contains a small lead-capture application with optional image upload.
+A small lead-capture application with optional image upload and offline support.
 
-- **Frontend**: Vue + Vite (offline-capable)
-- **Backend**: NestJS + MongoDB + AWS S3 (presigned uploads)
-- **Local “prod-like” run**: Docker Compose (nginx serves frontend + proxies `/api` → backend)
+- **Frontend:** Vue 3 + Vite + IndexedDB offline draft
+- **Backend:** NestJS + MongoDB (Atlas) + AWS S3 (presigned POST uploads)
+- **Local “prod-like” run:** Docker Compose (Mongo + backend + nginx serving frontend + `/api` proxy)
+
+---
+
+## Live environments (Heroku)
+
+**Dev**
+
+- Frontend: <https://vamo-leads-frontend-dev-e5d28a8571a9.herokuapp.com>
+- Backend: <https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com>
+
+**Prod**
+
+- Frontend: https://vamo-leads-frontend-prod-6b0719dede8c.herokuapp.com
+- Backend: <https://vamo-leads-backend-prod-bacf33104bf6.herokuapp.com>
+
+> Note: Backend URLs may include a random suffix when using Heroku container apps. Always use the “Open app” URL from Heroku.
 
 ---
 
 ## What the app does
 
-### 1) Lead submission (Form step)
+### Step 1 — Lead form
 
 Users enter:
 
@@ -18,81 +34,81 @@ Users enter:
 - postal code, email, phone
 - privacy checkbox + optional newsletter opt-in
 
-When submitted **online**, the backend creates a Lead in MongoDB.
+Backend creates a lead in MongoDB and returns:
 
-When submitted **offline**, the frontend stores the form as an **offline draft** in IndexedDB.
+- `leadId`
+- short-lived `pictureToken` (JWT) used for picture endpoints
 
-### 2) Optional image upload (Images step)
+### Step 2 — Optional image upload
 
-Images are uploaded using:
+Images are uploaded via a secure 3-step flow:
 
-1. Backend returns **S3 presigned POST** (no image file goes through backend).
-2. Frontend uploads file directly to S3 using the presigned POST.
-3. Frontend calls backend to **attach** the uploaded file metadata to the Lead.
+1. **Frontend → Backend:** request presigned upload  
+   `POST /leads/:id/pictures/presign`
+
+2. **Frontend → S3:** upload directly (backend never receives image bytes)  
+   Presigned POST upload to S3 with enforced:
+
+   - content-type
+   - size limit
+   - SSE encryption
+   - metadata lead id
+
+3. **Frontend → Backend:** attach the uploaded image metadata  
+   `POST /leads/:id/pictures`
+
+Backend verifies the uploaded object exists and matches constraints (HEAD request) before saving metadata to MongoDB.
 
 ---
 
-## Offline support (Frontend)
+## Offline support (IndexedDB)
 
-The frontend stores a **single** offline draft in IndexedDB:
+The frontend stores **one** offline draft (`draft/current`) in IndexedDB:
 
-- It includes `formData`
-- It can include `images[]`
-- It can include `leadId` + `pictureToken` (if the lead was created while online)
+- `formData`
+- `images[]` (as blobs)
+- optional `leadId` + `pictureToken`
 
 Supported flows:
 
-### Flow A — Fully online
+### A) Fully online
 
-- Submit form online → lead is created
-- Upload images online → images are uploaded/attached
+- Submit form online → lead created
+- Upload images online → uploaded & attached
 
-### Flow B — Online form submit, offline during images
+### B) Online form submit → offline during images
 
-- Submit form online → lead is created and **leadId/pictureToken are saved in IndexedDB**
-- Go offline → save images locally
-- Go online → click “Bilder hochladen” → uploads saved images using stored lead identity
+- Submit form online → lead created and `leadId/pictureToken` saved to IndexedDB
+- Go offline → select images → “Save locally”
+- Go online → click “Upload” → images upload using stored lead identity
 
-### Flow C — Offline from the beginning
+### C) Offline from the start
 
-- Submit form offline → draft saved locally
-- Save images locally (optional)
-- Go online → click “Bilder hochladen” → creates lead once, then uploads/attaches images
+- Submit form offline → draft saved
+- Save images offline (optional)
+- Go online → click “Upload” → creates lead once then uploads & attaches images
 
-**Important limitation:** Only **one** offline draft is stored (`draft/current`). A second offline submission overwrites the first. This is intentional for the challenge scope.
-
----
-
-## Deployment model (Heroku)
-
-This project is designed to run as **four Heroku apps**:
-
-### Development environment
-
-- `vamo-leads-backend-dev`
-- `vamo-leads-frontend-dev`
-
-### Production environment
-
-- `vamo-leads-backend-prod`
-- `vamo-leads-frontend-prod`
-
-Reasons:
-
-- Clean separation between dev and prod
-- Safer testing without affecting production
-- Clear demonstration of real-world deployment practices
-
-Each frontend app communicates with its matching backend app via environment configuration.
-
----
+**Limitation (intentional for challenge scope):** Only one draft is stored. A second offline submission overwrites the first.
 
 ## Repository structure
 
-```text
 .
-├── backend/                 # NestJS API
-├── frontend/                # Vue + Vite app
-├── docker-compose.yml        # local prod-like setup (nginx + backend + mongo)
-└── README.md                 # this file
+├── backend/ # NestJS API
+├── frontend/ # Vue + Vite app
+├── docker-compose.yml # local prod-like setup (nginx + backend + mongo)
+└── README.md # this file
+
+---
+
+## Local run (Docker Compose)
+
+### Requirements
+
+- Docker + Docker Compose
+
+### Start
+
+```bash
+docker compose up --build
+
 ```

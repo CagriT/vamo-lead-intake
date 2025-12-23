@@ -11,8 +11,10 @@ export class SalesforceCrmService implements CrmService {
 
     try {
       // TODO: real HTTP call with axios/fetch
-      console.log('[SALESFORCE CRM] Lead payload prepared');
-
+      console.log('[SALESFORCE CRM] Lead payload prepared', {
+        hasEmail: Boolean(payload.Email),
+        hasPhone: Boolean(payload.Phone),
+      });
       return;
     } catch (error: unknown) {
       this.handleSalesforceError(error);

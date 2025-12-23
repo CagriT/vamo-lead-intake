@@ -222,6 +222,7 @@ export function useLeadFlow() {
 
       // 3️⃣ Cleanup
       await offlineDraft.clearOffline();
+      submitSuccess.value = true;
     } catch {
       displayError.value = "Offline-Bilder konnten nicht hochgeladen werden.";
     } finally {

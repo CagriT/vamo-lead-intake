@@ -22,7 +22,9 @@ export async function createLead(
   });
 
   if (!response.ok) {
-    throw new Error("Lead submission failed");
+    // throw new Error("Lead submission failed");
+    const text = await response.text().catch(() => "");
+    throw new Error(text || "Lead submission failed");
   }
 
   const data = await response.json();

@@ -39,12 +39,12 @@ import { seconds, ThrottlerModule } from '@nestjs/throttler';
       {
         name: 'pictures',
         ttl: seconds(60), // seconds
-        limit: 10, // max 10 req per minute per IP
+        limit: 10, // max 20 req per minute per IP
       },
       {
         name: 'leads',
         ttl: seconds(60),
-        limit: 5,
+        limit: 20,
       },
     ]),
   ],
