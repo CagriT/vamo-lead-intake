@@ -8,18 +8,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# env / secrets
-.env
-.env.*
-*.pem
-*.key
-
 # git / editor
 .git
-.gitignore
 .vscode
 .idea
-
-# OS junk
 .DS_Store
 Thumbs.db
+
+# ignore local-only env files (but KEEP build env files)
+.env
+.env.local
+.env.*.local

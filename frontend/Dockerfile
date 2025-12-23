@@ -6,7 +6,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+
+# Choose which Vite env file to use (.env.development vs .env.production)
+ARG VITE_MODE=production
+RUN npm run build -- --mode $VITE_MODE
 
 # ---- runtime stage ----
 FROM nginx:alpine
