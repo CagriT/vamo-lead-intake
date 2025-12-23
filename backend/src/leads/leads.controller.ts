@@ -6,10 +6,8 @@ import { AttachPictureDto } from './dto/attach-picture.dto';
 import { LeadPictureGuard } from './lead-picture.guard';
 import { Throttle, ThrottlerGuard, seconds } from '@nestjs/throttler';
 import {
-  AttachPictureParams,
   AttachPictureResponse,
   CreateLeadResponse,
-  PresignPictureParams,
   PresignPictureResponse,
 } from '../types';
 
