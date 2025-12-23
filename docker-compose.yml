@@ -31,6 +31,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_MODE: development
+        VITE_API_BASE_URL: /api
     container_name: vamo-frontend
     restart: unless-stopped
     depends_on:
@@ -40,6 +43,7 @@ services:
     environment:
       - PORT=80
     volumes:
+      # Mount local nginx config as the TEMPLATE so envsubst can write conf.d/default.conf
       - ./frontend/nginx.local.conf:/etc/nginx/templates/default.conf.template:ro
 
 volumes:

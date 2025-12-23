@@ -99,7 +99,8 @@ Backend validates env vars at startup (Joi). Missing/invalid values will crash t
 ### Picture token
 
 - `LEAD_PICTURE_TOKEN_SECRET`
-- `LEAD_PICTURE_TOKEN_TTL` (seconds)
+- `LEAD_PICTURE_TOKEN_TTL` (JWT expiry)
+  - accepts seconds (e.g. `3600`) or a duration string (e.g. `15m`) depending on configuration
 
 ### CRM
 

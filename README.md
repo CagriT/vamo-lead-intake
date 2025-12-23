@@ -1,26 +1,26 @@
-# Vamo Leads — Full-Stack Challenge (Vue + NestJS)
+# Full-Stack Challenge (Vue + NestJS)
 
 A small lead-capture application with optional image upload and offline support.
 
-- **Frontend:** Vue 3 + Vite + IndexedDB offline draft
-- **Backend:** NestJS + MongoDB (Atlas) + AWS S3 (presigned POST uploads)
+- **Frontend:** Vue 3 + Vite + IndexedDB (offline draft)
+- **Backend:** NestJS + MongoDB (Mongoose) + AWS S3 (presigned POST uploads)
 - **Local “prod-like” run:** Docker Compose (Mongo + backend + nginx serving frontend + `/api` proxy)
 
 ---
 
 ## Live environments (Heroku)
 
-**Dev**
+**Prod (recommended)**
 
-- Frontend: <https://vamo-leads-frontend-dev-e5d28a8571a9.herokuapp.com>
-- Backend: <https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com>
+- Frontend: https://vamo-leads-frontend-prod-6b0719dede8c.herokuapp.com/
+- Backend: https://vamo-leads-backend-prod-bacf33104bf6.herokuapp.com/
 
-**Prod**
+**Dev (auto-deploy on push to `develop`)**
 
-- Frontend: https://vamo-leads-frontend-prod-6b0719dede8c.herokuapp.com
-- Backend: <https://vamo-leads-backend-prod-bacf33104bf6.herokuapp.com>
+- Frontend: https://vamo-leads-frontend-dev-e5d28a8571a9.herokuapp.com/
+- Backend: https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com/
 
-> Note: Backend URLs may include a random suffix when using Heroku container apps. Always use the “Open app” URL from Heroku.
+> Note: Heroku “container” apps may include a random suffix in the public URL. Always use the **Heroku “Open app”** URL for the correct domain.
 
 ---
 
@@ -34,30 +34,32 @@ Users enter:
 - postal code, email, phone
 - privacy checkbox + optional newsletter opt-in
 
-Backend creates a lead in MongoDB and returns:
+When submitted **online**, the backend creates a lead in MongoDB and returns:
 
 - `leadId`
 - short-lived `pictureToken` (JWT) used for picture endpoints
+
+When submitted **offline**, the frontend stores the form as an **offline draft** in IndexedDB.
 
 ### Step 2 — Optional image upload
 
 Images are uploaded via a secure 3-step flow:
 
 1. **Frontend → Backend:** request presigned upload  
-   `POST /leads/:id/pictures/presign`
+   `POST /leads/:id/pictures/presign` (requires `Authorization: Bearer <pictureToken>`)
 
 2. **Frontend → S3:** upload directly (backend never receives image bytes)  
-   Presigned POST upload to S3 with enforced:
+   Presigned POST upload to S3 with enforced constraints:
 
    - content-type
    - size limit
-   - SSE encryption
+   - server-side encryption (AES256)
    - metadata lead id
 
 3. **Frontend → Backend:** attach the uploaded image metadata  
-   `POST /leads/:id/pictures`
+   `POST /leads/:id/pictures` (requires `Authorization: Bearer <pictureToken>`)
 
-Backend verifies the uploaded object exists and matches constraints (HEAD request) before saving metadata to MongoDB.
+Backend verifies the uploaded object exists (S3 `HEAD`) and matches constraints before saving metadata to MongoDB.
 
 ---
 
@@ -67,7 +69,7 @@ The frontend stores **one** offline draft (`draft/current`) in IndexedDB:
 
 - `formData`
 - `images[]` (as blobs)
-- optional `leadId` + `pictureToken`
+- optional `leadId` + `pictureToken` (if lead was created while online)
 
 Supported flows:
 
@@ -90,25 +92,14 @@ Supported flows:
 
 **Limitation (intentional for challenge scope):** Only one draft is stored. A second offline submission overwrites the first.
 
-## Repository structure
-
-.
-├── backend/ # NestJS API
-├── frontend/ # Vue + Vite app
-├── docker-compose.yml # local prod-like setup (nginx + backend + mongo)
-└── README.md # this file
-
 ---
 
-## Local run (Docker Compose)
+## Repository structure
 
-### Requirements
-
-- Docker + Docker Compose
-
-### Start
-
-```bash
-docker compose up --build
-
+```text
+.
+├── backend/                  # NestJS API
+├── frontend/                 # Vue + Vite app
+├── docker-compose.yml        # local prod-like setup (nginx + backend + mongo)
+└── README.md                 # this file
 ```
