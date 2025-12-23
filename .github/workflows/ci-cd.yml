@@ -1,5 +1,5 @@
 name: CI/CD
-run-name: Deploy ${{ github.ref_name }} → Heroku
+run-name: ${{ github.ref_name == 'main' && 'PROD deployment → Heroku' || 'DEV deployment → Heroku' }}
 
 on:
   push:
