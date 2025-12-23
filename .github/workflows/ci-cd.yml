@@ -30,5 +30,7 @@ jobs:
       - name: Deploy FRONTEND (dev)
         working-directory: frontend
         run: |
-          heroku container:push web -a vamo-leads-frontend-dev --arg VITE_MODE=development
+          heroku container:push web -a vamo-leads-frontend-dev \
+            --arg VITE_MODE=development \
+            --arg VITE_API_BASE_URL=https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com
           heroku container:release web -a vamo-leads-frontend-dev

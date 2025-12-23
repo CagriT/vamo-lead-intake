@@ -7,8 +7,13 @@ RUN npm ci
 
 COPY . .
 
-# Choose which Vite env file to use (.env.development vs .env.production)
+# Build-time inputs
 ARG VITE_MODE=production
+ARG VITE_API_BASE_URL
+
+# Make Vite see it during build (VITE_* is exposed)
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 RUN npm run build -- --mode $VITE_MODE
 
 # ---- runtime stage ----
