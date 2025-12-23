@@ -1,11 +1,11 @@
-name: CI/CD (Dev)
+name: CI/CD (Dev + Prod)
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, main]
 
 jobs:
-  deploy-dev:
+  deploy:
     runs-on: ubuntu-latest
     env:
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
@@ -21,16 +21,36 @@ jobs:
       - name: Login to Heroku Container Registry
         run: heroku container:login
 
+      # ---------------- DEV (develop branch) ----------------
       - name: Deploy BACKEND (dev)
+        if: github.ref == 'refs/heads/develop'
         working-directory: backend
         run: |
           heroku container:push web -a vamo-leads-backend-dev
           heroku container:release web -a vamo-leads-backend-dev
 
       - name: Deploy FRONTEND (dev)
+        if: github.ref == 'refs/heads/develop'
         working-directory: frontend
         run: |
           heroku container:push web -a vamo-leads-frontend-dev \
             --arg VITE_MODE=development \
             --arg VITE_API_BASE_URL=https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com
           heroku container:release web -a vamo-leads-frontend-dev
+
+      # ---------------- PROD (main branch) ----------------
+      - name: Deploy BACKEND (prod)
+        if: github.ref == 'refs/heads/main'
+        working-directory: backend
+        run: |
+          heroku container:push web -a vamo-leads-backend-prod
+          heroku container:release web -a vamo-leads-backend-prod
+
+      - name: Deploy FRONTEND (prod)
+        if: github.ref == 'refs/heads/main'
+        working-directory: frontend
+        run: |
+          heroku container:push web -a vamo-leads-frontend-prod \
+            --arg VITE_MODE=production \
+            --arg VITE_API_BASE_URL=https://vamo-leads-backend-prod-bacf33104bf6.herokuapp.com
+          heroku container:release web -a vamo-leads-frontend-prod

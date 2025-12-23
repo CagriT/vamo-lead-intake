@@ -14,7 +14,6 @@ export async function createLead(
   params: CreateLeadParams
 ): Promise<CreateLeadResponse> {
   const { payload } = params;
-  console.log("VITE_API_BASE_URL =", import.meta.env.VITE_API_BASE_URL);
 
   const response = await fetch(`${API_BASE_URL}/leads`, {
     method: "POST",
