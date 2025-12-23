@@ -22,11 +22,13 @@ jobs:
         run: heroku container:login
 
       - name: Deploy BACKEND (dev)
+        working-directory: backend
         run: |
-          heroku container:push web -a vamo-leads-backend-dev -R backend
+          heroku container:push web -a vamo-leads-backend-dev
           heroku container:release web -a vamo-leads-backend-dev
 
       - name: Deploy FRONTEND (dev)
+        working-directory: frontend
         run: |
-          heroku container:push web -a vamo-leads-frontend-dev -R frontend
+          heroku container:push web -a vamo-leads-frontend-dev
           heroku container:release web -a vamo-leads-frontend-dev
