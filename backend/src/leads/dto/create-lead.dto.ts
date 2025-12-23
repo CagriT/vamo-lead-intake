@@ -11,25 +11,25 @@ import { Salutation } from '../salutation.enum';
 
 export class CreateLeadDto {
   @IsEnum(Salutation)
-  salutation: Salutation;
+  salutation!: Salutation;
 
   @IsString()
   @IsNotEmpty()
-  firstName: string;
+  firstName!: string;
 
   @IsString()
   @IsNotEmpty()
-  lastName: string;
+  lastName!: string;
 
   @IsPostalCode('DE')
-  postalCode: string;
+  postalCode!: string;
 
   @IsEmail()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsNotEmpty()
-  phone: string;
+  phone!: string;
 
   @IsOptional()
   @IsBoolean()

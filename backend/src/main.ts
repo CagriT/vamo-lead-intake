@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
@@ -21,6 +22,8 @@ async function bootstrap() {
   // Trust proxy for correct client IP in rate limiting
   app.set('trust proxy', 1);
   app.use(helmet());
+  app.use(express.json({ limit: '200kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '200kb' }));
 
   app.enableCors({
     origin: corsOrigins,

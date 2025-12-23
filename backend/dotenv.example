@@ -1,23 +1,41 @@
-# EXAMPLE IMPLEMENTATION OF .env FILE
-# Database Configuration
+# =========================
+# Backend (.env.example)
+# =========================
+
+# Runtime
+NODE_ENV=development
+PORT=3000
+
+# Database
 MONGODB_URI=
 
-# CRM SETTINGS
-CRM_MODE=
+# CORS (comma-separated allowed origins)
+# Local dev:
+CORS_ORIGIN=http://localhost:5173
+# Example prod:
+# CORS_ORIGIN=https://your-frontend-domain.com
 
-# Salesforce CRM Settings
+# =========================
+# AWS S3 (Images)
+# =========================
+AWS_REGION=eu-north-1
+AWS_S3_BUCKET_NAME=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+
+# Lead picture token (used for presign/attach endpoints)
+LEAD_PICTURE_TOKEN_SECRET=
+# seconds (1 hour default)
+LEAD_PICTURE_TOKEN_TTL=3600
+
+# =========================
+# CRM
+# =========================
+# Options: FAKE | SALESFORCE
+CRM_MODE=FAKE
+
+# Salesforce (required only if CRM_MODE=SALESFORCE)
 SALESFORCE_CLIENT_ID=
 SALESFORCE_CLIENT_SECRET=
 SALESFORCE_REDIRECT_URI=
 SALESFORCE_LOGIN_URL=
-
-# Aws settings
-NODE_ENV=
-AWS_REGION=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_S3_BUCKET_NAME=#
-
-# Lead Picture Token Settings
-LEAD_PICTURE_TOKEN_SECRET=
-LEAD_PICTURE_TOKEN_TTL=

@@ -3,13 +3,13 @@ import { IsNotEmpty, IsString } from 'class-validator';
 export class AttachPictureDto {
   @IsString()
   @IsNotEmpty()
-  key: string;
+  key!: string;
 
   @IsString()
   @IsNotEmpty()
-  mimeType: string;
+  mimeType!: string;
 
   @IsString()
   @IsNotEmpty()
-  originalName: string;
+  originalName!: string;
 }

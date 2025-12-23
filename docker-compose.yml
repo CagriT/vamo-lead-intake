@@ -1,6 +1,42 @@
-version: '3.8'
 services:
-  redis:
-    image: redis:7
+  mongo:
+    image: mongo:7
+    container_name: vamo-mongo
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vamo-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/vamo
+      CORS_ORIGIN: http://localhost:8080
+      CRM_MODE: FAKE
+    depends_on:
+      - mongo
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vamo-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  mongo_data:

@@ -1,8 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { HydratedDocument } from 'mongoose';
 
-export type LeadDocument = Lead & Document;
-
+export type LeadDocument = HydratedDocument<Lead>;
 export type LeadPicture = {
   key: string;
   mimeType: string;
@@ -12,25 +11,25 @@ export type LeadPicture = {
 @Schema({ timestamps: true, collection: 'leads' })
 export class Lead {
   @Prop({ required: true })
-  salutation: string;
+  salutation!: string;
 
   @Prop({ required: true })
-  firstName: string;
+  firstName!: string;
 
   @Prop({ required: true })
-  lastName: string;
+  lastName!: string;
 
   @Prop({ required: true })
-  postalCode: string;
+  postalCode!: string;
 
   @Prop({ required: true })
-  email: string;
+  email!: string;
 
   @Prop({ required: true })
-  phone: string;
+  phone!: string;
 
   @Prop({ type: Boolean, required: false })
-  newsletterSingleOptIn: boolean;
+  newsletterSingleOptIn?: boolean;
 
   @Prop({
     type: [
@@ -42,7 +41,7 @@ export class Lead {
     ],
     default: [],
   })
-  pictures: LeadPicture[];
+  pictures!: LeadPicture[];
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);
