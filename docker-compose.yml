@@ -37,6 +37,10 @@ services:
       - backend
     ports:
       - "8080:80"
+    environment:
+      - PORT=80
+    volumes:
+      - ./frontend/nginx.local.conf:/etc/nginx/templates/default.conf.template:ro
 
 volumes:
   mongo_data:
