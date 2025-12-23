@@ -1,0 +1,32 @@
+name: CI/CD (Dev)
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      HEROKU_EMAIL: ${{ secrets.HEROKU_EMAIL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container Registry
+        run: heroku container:login
+
+      - name: Deploy BACKEND (dev)
+        run: |
+          heroku container:push web -a vamo-leads-backend-dev -R backend
+          heroku container:release web -a vamo-leads-backend-dev
+
+      - name: Deploy FRONTEND (dev)
+        run: |
+          heroku container:push web -a vamo-leads-frontend-dev -R frontend
+          heroku container:release web -a vamo-leads-frontend-dev
