@@ -1,4 +1,3 @@
-// src/composables/useImageState.ts
 import { ref } from "vue";
 
 export type ImageState = ReturnType<typeof useImageState>;

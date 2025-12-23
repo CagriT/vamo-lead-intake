@@ -1,4 +1,3 @@
-// src/composables/useLeadFlow.ts
 import { ref, computed, onMounted } from "vue";
 import { useLeadFormState } from "./useLeadFormState";
 import { useImageState } from "./useImageState";
