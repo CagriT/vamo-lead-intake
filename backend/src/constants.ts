@@ -1,4 +1,4 @@
-export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const PRESIGNED_URL_TTL_SECONDS = 3600;
 export const MAX_FILE_NAME_LENGTH = 100;
 

@@ -150,7 +150,7 @@
         />
       </div>
 
-      <div class="field">
+      <div v-if="!isMobile" class="field">
         <label>Bilder auswählen</label>
         <input
           type="file"
@@ -197,20 +197,25 @@ const salutationOptions = [
   { label: "Divers", value: "DIVERS" },
 ];
 const {
+  // State
   step,
-  form,
-  errors,
-  isSubmitting,
-  showValidationError,
-  isSubmitEnabled,
   submitSuccess,
   displayError,
-  isOnline,
-  statusMessage,
+  isSubmitting,
+  // Form state + validation
+  form,
+  errors,
+  showValidationError,
+  isSubmitEnabled,
+  // Image selection + upload
   selectedImages,
   isUploadingImages,
   primaryButtonLabel,
   primaryButtonDisabled,
+  // Network + status
+  isOnline,
+  statusMessage,
+  // Actions
   submitForm,
   primaryAction,
   skipImages,
