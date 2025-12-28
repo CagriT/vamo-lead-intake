@@ -2,7 +2,7 @@ import { SaveOfflineParams } from "@/composables/useOfflineDraft";
 import { CreateLeadPayload, OfflineImageRecord } from "@/types/leads";
 
 const DB_NAME = "vamo-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORE_NAME = "draft";
 
 // Total offline draft cap (images stored in IndexedDB)
