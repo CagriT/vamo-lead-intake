@@ -113,9 +113,9 @@ Backend validates env vars at startup (Joi). Missing/invalid values will crash t
 
 ---
 
-## Local development (without Docker)
-
-```bash
+## Local dev (no Docker)
+cp dotenv.example .env
 npm ci
-npm run start:dev
-```
+npm run start:dev## Docker (built via root compose)
+Backend listens on 3000; compose sets `MONGODB_URI` to `mongodb://mongo:27017/vamo` and `CORS_ORIGIN` to frontend URL.
+

@@ -1,9 +1,8 @@
-import { ref } from "vue";
+import { Ref, ref } from "vue";
 import {
   saveDraft,
   getDraft,
   clearDraft,
-  hasDraft,
   type OfflineDraft,
 } from "@/utils/offline-draft";
 import type { CreateLeadPayload } from "@/types/leads";
@@ -16,55 +15,58 @@ function recordToFile(record: {
   return new File([record.blob], record.fileName, { type: record.mimeType });
 }
 
-export function useOfflineDraft() {
-  const hasOfflineDraft = ref(false);
-  const isSavingDraft = ref(false);
+export type SaveOfflineParams = {
+  payload: CreateLeadPayload;
+  leadMeta?: {
+    leadId: string;
+    pictureToken: string;
+  };
+};
+
+type OfflineDraftRetVal = {
+  offlineImageCount: Ref<number, number>;
+  draftError: Ref<string, string>;
+  getDraft(): Promise<OfflineDraft | null>;
+  refreshDraftState: () => Promise<void>;
+  saveOffline: (params: SaveOfflineParams) => Promise<void>;
+  appendImagesOffline: (files: File[]) => Promise<void>;
+  clearOffline: () => Promise<void>;
+};
+
+export function useOfflineDraft(): OfflineDraftRetVal {
+  const offlineImageCount = ref(0); // How many images are actually stored in the draft
   const draftError = ref("");
 
   async function refreshDraftState(): Promise<void> {
-    hasOfflineDraft.value = await hasDraft();
+    const draft = await getDraft();
+    offlineImageCount.value = draft?.images?.length ?? 0;
   }
 
   // Create/overwrite draft (form submit offline OR online meta persistence)
-  async function saveOffline(
-    payload: CreateLeadPayload,
-    files: File[],
-    leadMeta?: { leadId: string; pictureToken: string }
-  ): Promise<void> {
-    isSavingDraft.value = true;
+  async function saveOffline(params: SaveOfflineParams): Promise<void> {
+    const { payload, leadMeta } = params;
     draftError.value = "";
 
     try {
-      await saveDraft(payload, files, leadMeta);
-      hasOfflineDraft.value = true;
+      await saveDraft({ payload, files: [], leadMeta });
+      await refreshDraftState(); // keep in sync
     } catch (e) {
-      if (e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED") {
-        draftError.value =
-          "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen.";
-      } else {
-        draftError.value = "Offline speichern fehlgeschlagen.";
-      }
-    } finally {
-      isSavingDraft.value = false;
+      draftError.value =
+        e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED"
+          ? "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen."
+          : "Offline speichern fehlgeschlagen.";
     }
   }
 
   // Append images (image step offline)
   async function appendImagesOffline(files: File[]): Promise<void> {
     if (files.length === 0) return;
-
-    isSavingDraft.value = true;
     draftError.value = "";
 
     try {
       const draft = await getDraft();
       if (!draft) {
-        // If user somehow lands on image step without draft, create minimal draft from files only
-        if (!draft) {
-          throw new Error("NO_DRAFT");
-        }
-        hasOfflineDraft.value = true;
-        return;
+        throw new Error("NO_DRAFT");
       }
 
       // Convert existing OfflineImageRecord[] -> File[]
@@ -79,41 +81,30 @@ export function useOfflineDraft() {
       const mergedFiles = [...existingFiles, ...files];
 
       // Save once: saveDraft will preserve createdAt + leadId/pictureToken internally
-      await saveDraft(draft.formData, mergedFiles);
-
-      hasOfflineDraft.value = true;
+      await saveDraft({ payload: draft.formData, files: mergedFiles });
+      await refreshDraftState(); // now offlineImageCount updates
     } catch (e) {
-      if (e instanceof Error && e.message === "NO_DRAFT") {
-        draftError.value =
-          "Keine Offline-Anfrage gefunden. Bitte Formular erneut senden.";
-      } else if (e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED") {
-        draftError.value =
-          "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen.";
-      } else {
-        draftError.value = "Offline Bilder speichern fehlgeschlagen.";
-      }
-    } finally {
-      isSavingDraft.value = false;
+      draftError.value =
+        e instanceof Error && e.message === "NO_DRAFT"
+          ? "Keine Offline-Anfrage gefunden. Bitte Formular erneut senden."
+          : e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED"
+          ? "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen."
+          : "Offline Bilder speichern fehlgeschlagen.";
     }
-  }
-
-  async function loadDraft(): Promise<OfflineDraft | null> {
-    return getDraft();
   }
 
   async function clearOffline(): Promise<void> {
     await clearDraft();
-    hasOfflineDraft.value = false;
+    offlineImageCount.value = 0;
   }
 
   return {
-    hasOfflineDraft,
-    isSavingDraft,
+    offlineImageCount,
     draftError,
+    getDraft,
     refreshDraftState,
     saveOffline,
     appendImagesOffline,
-    loadDraft,
     clearOffline,
   };
 }

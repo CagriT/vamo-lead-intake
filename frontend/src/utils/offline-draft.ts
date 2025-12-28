@@ -1,7 +1,8 @@
+import { SaveOfflineParams } from "@/composables/useOfflineDraft";
 import { CreateLeadPayload, OfflineImageRecord } from "@/types/leads";
 
 const DB_NAME = "vamo-offline";
-const DB_VERSION = 2;
+const DB_VERSION = 1;
 const STORE_NAME = "draft";
 
 // Total offline draft cap (images stored in IndexedDB)
@@ -14,6 +15,10 @@ export interface OfflineDraft {
   leadId?: string;
   pictureToken?: string;
 }
+
+type SaveDraftParams = SaveOfflineParams & {
+  files: File[];
+};
 
 function openDb(): Promise<IDBDatabase> {
   if (!("indexedDB" in window)) {
@@ -49,13 +54,9 @@ function sumExistingBytes(images: OfflineImageRecord[] | undefined): number {
   return images.reduce((sum, img) => sum + (img.blob?.size ?? 0), 0);
 }
 
-export async function saveDraft(
-  payload: CreateLeadPayload,
-  files: File[],
-  leadMeta?: { leadId: string; pictureToken: string }
-): Promise<void> {
+export async function saveDraft(params: SaveDraftParams): Promise<void> {
+  const { payload, leadMeta, files } = params;
   const existing = await getDraft();
-
   // Enforce storage limit: existing images + new files
   const existingBytes = sumExistingBytes(existing?.images);
   const newBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -85,7 +86,6 @@ export async function saveDraft(
 
 export async function getDraft(): Promise<OfflineDraft | null> {
   const db = await openDb();
-
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const req = tx.objectStore(STORE_NAME).get("current");
@@ -105,9 +105,4 @@ export async function clearDraft(): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-}
-
-export async function hasDraft(): Promise<boolean> {
-  const draft = await getDraft();
-  return Boolean(draft);
 }

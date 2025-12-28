@@ -1,5 +1,9 @@
-import { ref, computed, onMounted } from "vue";
-import { useLeadFormState } from "./useLeadFormState";
+import { ref, computed, onMounted, Ref, ComputedRef } from "vue";
+import {
+  LeadFormErrors,
+  LeadFormInputs,
+  useLeadFormState,
+} from "./useLeadFormState";
 import { useImageState } from "./useImageState";
 import { useNetworkState } from "./useNetworkState";
 import { useOfflineDraft } from "./useOfflineDraft";
@@ -9,17 +13,38 @@ import {
   uploadImageToS3,
   attachPictureToLead,
 } from "@/api/leads";
+import { OfflineDraft } from "@/utils/offline-draft";
 
 type Step = "form" | "images";
+type LeadFlow = {
+  step: Ref<Step, Step>;
+  submitSuccess: Ref<boolean, boolean>;
+  displayError: Ref<string, string>;
+  isSubmitting: Ref<boolean, boolean>;
+  form: LeadFormInputs;
+  errors: ComputedRef<LeadFormErrors>;
+  showValidationError: Ref<boolean, boolean>;
+  isSubmitEnabled: ComputedRef<boolean>;
+  selectedImages: Ref<File[], File[]>;
+  isUploadingImages: Ref<boolean, boolean>;
+  isOnline: Ref<boolean, boolean>;
+  statusMessage: ComputedRef<string>;
+  primaryButtonLabel: ComputedRef<string>;
+  primaryButtonDisabled: ComputedRef<boolean>;
+  submitForm: () => Promise<void>;
+  primaryAction: () => Promise<void>;
+  skipImages: () => Promise<void>;
+  selectImages: (files: File[]) => void;
+};
 
-export function useLeadFlow() {
+export function useLeadFlow(): LeadFlow {
   // State
   const step = ref<Step>("form");
-  const submitSuccess = ref(false);
-  const displayError = ref("");
-  const isSubmitting = ref(false);
+  const submitSuccess = ref<boolean>(false);
+  const displayError = ref<string>("");
+  const isSubmitting = ref<boolean>(false);
 
-  // Persisted lead identity (CRITICAL FIX)
+  // Persisted lead identity (for image uploads)
   const leadId = ref<string | null>(null);
   const pictureToken = ref<string | null>(null);
 
@@ -39,7 +64,7 @@ export function useLeadFlow() {
 
   const primaryButtonDisabled = computed(() => {
     const hasNewImages = imageState.selectedImages.value.length > 0;
-    const hasOfflineImages = offlineDraft.hasOfflineDraft.value;
+    const hasOfflineImages = offlineDraft.offlineImageCount.value;
     return (
       imageState.isUploadingImages.value || (!hasNewImages && !hasOfflineImages)
     );
@@ -59,7 +84,9 @@ export function useLeadFlow() {
 
       // OFFLINE → save form only
       if (!network.isOnline.value) {
-        await offlineDraft.saveOffline(payload, []);
+        await offlineDraft.saveOffline({
+          payload,
+        });
         step.value = "images";
         return;
       }
@@ -71,9 +98,12 @@ export function useLeadFlow() {
       pictureToken.value = res.pictureToken;
 
       // CRITICAL: persist identity for later offline usage
-      await offlineDraft.saveOffline(payload, [], {
-        leadId: res.leadId,
-        pictureToken: res.pictureToken,
+      await offlineDraft.saveOffline({
+        payload,
+        leadMeta: {
+          leadId: res.leadId,
+          pictureToken: res.pictureToken,
+        },
       });
 
       step.value = "images";
@@ -84,42 +114,44 @@ export function useLeadFlow() {
     }
   }
 
-  // Primary action
+  // Upload Btn Primary action
   async function primaryAction(): Promise<void> {
+    const hasNewImages = imageState.selectedImages.value.length > 0;
     // OFFLINE → save only
     if (!network.isOnline.value) {
-      if (imageState.selectedImages.value.length > 0) {
-        await saveImagesOffline();
-      }
+      if (hasNewImages) await saveImagesOffline();
       return;
     }
 
     // ONLINE
-    const draft = await offlineDraft.loadDraft();
-    const hasNewImages = imageState.selectedImages.value.length > 0;
+    const draft = await offlineDraft.getDraft();
 
-    // ✅ Only sync form-only draft if user did NOT select new images
-    if (draft && draft.images.length === 0 && !hasNewImages) {
-      try {
-        if (!draft.leadId || !draft.pictureToken) {
-          await createLead({ payload: draft.formData });
-        }
-        await offlineDraft.clearOffline();
-        submitSuccess.value = true;
-      } catch {
-        displayError.value = "Lead konnte nicht synchronisiert werden.";
-      }
-      return;
-    }
+    // CAN BE ACTIVATED ONLY FOR OFFLINE INITIAL FORM SUBMISSION IN IMAGE UPLOAD SECTION
+    // Only sync form-only draft if user did NOT select new images
+    // if (draft && draft.images.length === 0 && !hasNewImages) {
+    //   try {
+    //     if (!draft.leadId || !draft.pictureToken) {
+    //       console.log("primaryAction TRY IF BLOCk");
+    //       await createLead({ payload: draft.formData });
+    //     }
+    //     await offlineDraft.clearOffline();
+    //     submitSuccess.value = true;
+    //   } catch {
+    //     displayError.value = "Lead konnte nicht synchronisiert werden.";
+    //   }
+    //   return;
+    // }
 
-    // 1️⃣ Upload offline images first (if any)
-    if (draft && draft.images.length > 0) {
-      await uploadOfflineDraftImages();
-    }
+    imageState.isUploadingImages.value = true;
+    try {
+      // Upload offline images first (if any)
+      if (draft && draft.images.length > 0)
+        await uploadOfflineDraftImages(draft);
 
-    // 2️⃣ Upload newly selected images (if any)
-    if (hasNewImages) {
-      await uploadImagesOnline();
+      // Upload newly selected images (if any)
+      if (hasNewImages) await uploadImagesOnline();
+    } finally {
+      imageState.isUploadingImages.value = false;
     }
   }
 
@@ -127,17 +159,16 @@ export function useLeadFlow() {
   async function uploadImagesOnline(): Promise<void> {
     if (!leadId.value || !pictureToken.value) return;
 
-    imageState.isUploadingImages.value = true;
     try {
       for (const file of imageState.selectedImages.value) {
         await uploadSingleImage(file);
       }
       imageState.clearSelected();
+      await offlineDraft.clearOffline();
       submitSuccess.value = true;
-    } catch {
+    } catch (e) {
+      console.log(e instanceof Error ? e.message : e);
       displayError.value = "Bild-Upload fehlgeschlagen.";
-    } finally {
-      imageState.isUploadingImages.value = false;
     }
   }
 
@@ -170,15 +201,15 @@ export function useLeadFlow() {
     });
   }
 
-  async function uploadOfflineDraftImages(): Promise<void> {
-    imageState.isUploadingImages.value = true;
+  async function uploadOfflineDraftImages(
+    draft: OfflineDraft | null
+  ): Promise<void> {
     displayError.value = "";
 
     try {
-      const draft = await offlineDraft.loadDraft();
       if (!draft || draft.images.length === 0) return;
 
-      // 1️⃣ Create lead ONCE and persist identity
+      // Create lead ONCE and persist identity
       if (draft.leadId && draft.pictureToken) {
         leadId.value = draft.leadId;
         pictureToken.value = draft.pictureToken;
@@ -188,45 +219,20 @@ export function useLeadFlow() {
         pictureToken.value = res.pictureToken;
       }
 
-      // 2️⃣ Upload all offline images
+      // Upload all offline images
       for (const img of draft.images) {
         const file = new File([img.blob], img.fileName, {
           type: img.mimeType,
         });
 
-        const presign = await presignPicture({
-          leadId: leadId.value,
-          pictureToken: pictureToken.value,
-          payload: {
-            fileName: file.name,
-            contentType: file.type,
-          },
-        });
-
-        await uploadImageToS3({
-          url: presign.url,
-          fields: presign.fields,
-          file,
-        });
-
-        await attachPictureToLead({
-          leadId: leadId.value,
-          pictureToken: pictureToken.value,
-          payload: {
-            key: presign.key,
-            mimeType: file.type,
-            originalName: file.name,
-          },
-        });
+        await uploadSingleImage(file);
       }
 
-      // 3️⃣ Cleanup
+      // Cleanup
       await offlineDraft.clearOffline();
       submitSuccess.value = true;
     } catch {
       displayError.value = "Offline-Bilder konnten nicht hochgeladen werden.";
-    } finally {
-      imageState.isUploadingImages.value = false;
     }
   }
 
@@ -237,14 +243,13 @@ export function useLeadFlow() {
       displayError.value = offlineDraft.draftError.value;
       return;
     }
-
+    // to make the upload btn disable
     imageState.clearSelected();
   }
 
   // Skip / reset
   async function skipImages(): Promise<void> {
     imageState.clearSelected();
-    submitSuccess.value = true;
 
     await offlineDraft.clearOffline(); // clear IndexedDB draft
 
@@ -272,7 +277,6 @@ export function useLeadFlow() {
 
     selectedImages: imageState.selectedImages,
     isUploadingImages: imageState.isUploadingImages,
-    offlineImageNotice: imageState.offlineImageNotice,
 
     isOnline: network.isOnline,
     statusMessage: network.statusMessage,
@@ -281,7 +285,6 @@ export function useLeadFlow() {
     primaryButtonDisabled,
 
     submitForm,
-    uploadOfflineDraftImages,
     primaryAction,
     skipImages,
     selectImages: imageState.addFiles,

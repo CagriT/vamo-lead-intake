@@ -18,14 +18,14 @@ import { CrmModule } from './crm/crm.module';
 
         // CRM
         CRM_MODE: Joi.string()
-          .empty('') // ✅ "" becomes undefined
+          .empty('') // "" becomes undefined
           .valid('FAKE', 'SALESFORCE')
           .default('FAKE'),
 
         SALESFORCE_CLIENT_ID: Joi.when('CRM_MODE', {
           is: 'SALESFORCE',
           then: Joi.string().min(1).required(),
-          otherwise: Joi.string().empty('').optional(), // ✅ allow missing/empty in FAKE
+          otherwise: Joi.string().empty('').optional(), // allow missing/empty in FAKE
         }),
 
         SALESFORCE_CLIENT_SECRET: Joi.when('CRM_MODE', {

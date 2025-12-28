@@ -1,15 +1,22 @@
-import { computed, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
+import {
+  computed,
+  ComputedRef,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  type Ref,
+} from "vue";
 
-export type NetworkState = ReturnType<typeof useNetworkState>;
+type NetworkState = {
+  isOnline: Ref<boolean, boolean>;
+  statusMessage: ComputedRef<string>;
+};
 
-export function useNetworkState(pendingRecords?: Ref<number>) {
+export function useNetworkState(): NetworkState {
   const isOnline = ref<boolean>(navigator.onLine);
 
   const statusMessage = computed(() => {
     if (isOnline.value) {
-      if (pendingRecords?.value && pendingRecords.value > 0) {
-        return `Online — ${pendingRecords.value} gespeicherte Anfrage(n) bereit zum Upload.`;
-      }
       return "Online — Bilder können jetzt über den Upload-Button hochgeladen werden.";
     }
     return "Offline — Bilder werden lokal gespeichert und später hochgeladen.";

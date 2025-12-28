@@ -1,14 +1,43 @@
-import { computed, reactive, ref, watch } from "vue";
+import { computed, ComputedRef, reactive, Ref, ref, watch } from "vue";
 import { CreateLeadPayload } from "@/types/leads";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const postalCodeRegex = /^\d{5}$/;
 const germanPhoneRegex = /^(\+49|0)[0-9\s\-()]{6,}$/;
 
-export type LeadFormState = ReturnType<typeof useLeadFormState>;
+export type LeadFormInputs = {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  postalCode: string;
+  email: string;
+  phone: string;
+  privacyAccepted: boolean;
+  newsletterSingleOptIn: boolean;
+};
 
-export function useLeadFormState() {
-  const form = reactive({
+export type LeadFormErrors = {
+  salutation: string;
+  firstName: string;
+  lastName: string;
+  postalCode: string;
+  email: string;
+  phone: string;
+  privacyAccepted: string;
+};
+
+type LeadFormState = {
+  form: LeadFormInputs;
+  errors: ComputedRef<LeadFormErrors>;
+  isFormValid: ComputedRef<boolean>;
+  isSubmitEnabled: ComputedRef<boolean>;
+  showValidationError: Ref<boolean, boolean>;
+  buildPayload: () => CreateLeadPayload;
+  resetForm: () => void;
+};
+
+export function useLeadFormState(): LeadFormState {
+  const form = reactive<LeadFormInputs>({
     salutation: "",
     firstName: "",
     lastName: "",
@@ -21,7 +50,7 @@ export function useLeadFormState() {
 
   const showValidationError = ref(false);
 
-  const errors = computed(() => ({
+  const errors = computed<LeadFormErrors>(() => ({
     salutation: !form.salutation ? "Bitte wählen Sie eine Anrede." : "",
     firstName: !form.firstName.trim() ? "Vorname ist erforderlich." : "",
     lastName: !form.lastName.trim() ? "Nachname ist erforderlich." : "",
