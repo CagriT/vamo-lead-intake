@@ -1,4 +1,5 @@
 import { Ref, ref } from "vue";
+import { fileKey } from "./useOfflineDraft";
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -24,7 +25,17 @@ export function useImageState(): ImageState {
     }
 
     if (validFiles.length > 0) {
-      selectedImages.value = [...selectedImages.value, ...validFiles];
+      const existingKeys = new Set(selectedImages.value.map(fileKey));
+      const newFiles = validFiles.filter((file) => {
+        const key = fileKey(file);
+        if (existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+
+      if (newFiles.length > 0) {
+        selectedImages.value = [...selectedImages.value, ...newFiles];
+      }
       if (validFiles.length === files.length) imageUploadError.value = "";
     }
   }

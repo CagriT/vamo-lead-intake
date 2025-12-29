@@ -15,6 +15,19 @@ function recordToFile(record: {
   return new File([record.blob], record.fileName, { type: record.mimeType });
 }
 
+// not to have same image again
+function fileKeyFromRecord(record: {
+  fileName: string;
+  mimeType: string;
+  blob: Blob;
+}): string {
+  return `${record.fileName}|${record.blob.size}|${record.mimeType}`;
+}
+
+export function fileKey(file: File): string {
+  return `${file.name}|${file.size}|${file.type}`;
+}
+
 export type SaveOfflineParams = {
   payload: CreateLeadPayload;
   leadMeta?: {
@@ -53,7 +66,7 @@ export function useOfflineDraft(): OfflineDraftRetVal {
     } catch (e) {
       draftError.value =
         e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED"
-          ? "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen."
+          ? "Offline‑Upload zu groß (max. 20 MB). Bitte kleinere Bilder auswählen."
           : "Offline speichern fehlgeschlagen.";
     }
   }
@@ -78,7 +91,20 @@ export function useOfflineDraft(): OfflineDraftRetVal {
         })
       );
 
-      const mergedFiles = [...existingFiles, ...files];
+      // not to have same image again
+      const existingKeys = new Set(
+        draft.images.map((img) => fileKeyFromRecord(img))
+      );
+
+      const dedupedFiles = files.filter((file) => {
+        const key = fileKey(file);
+        if (existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+
+      if (dedupedFiles.length === 0) return;
+      const mergedFiles = [...existingFiles, ...dedupedFiles];
 
       // Save once: saveDraft will preserve createdAt + leadId/pictureToken internally
       await saveDraft({ payload: draft.formData, files: mergedFiles });
@@ -88,7 +114,7 @@ export function useOfflineDraft(): OfflineDraftRetVal {
         e instanceof Error && e.message === "NO_DRAFT"
           ? "Keine Offline-Anfrage gefunden. Bitte Formular erneut senden."
           : e instanceof Error && e.message === "OFFLINE_QUOTA_EXCEEDED"
-          ? "Offline-Speicher voll. Bitte weniger oder kleinere Bilder auswählen."
+          ? "Offline‑Upload zu groß (max. 20 MB). Bitte kleinere Bilder auswählen."
           : "Offline Bilder speichern fehlgeschlagen.";
     }
   }

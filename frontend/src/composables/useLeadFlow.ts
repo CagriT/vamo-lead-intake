@@ -114,6 +114,12 @@ export function useLeadFlow(): LeadFlow {
     }
   }
 
+  function selectImages(files: File[]) {
+    displayError.value = "";
+    offlineDraft.draftError.value = "";
+    imageState.addFiles(files);
+  }
+
   // Upload Btn Primary action
   async function primaryAction(): Promise<void> {
     const hasNewImages = imageState.selectedImages.value.length > 0;
@@ -241,6 +247,7 @@ export function useLeadFlow(): LeadFlow {
 
     if (offlineDraft.draftError.value) {
       displayError.value = offlineDraft.draftError.value;
+      imageState.clearSelected();
       return;
     }
     // to make the upload btn disable
@@ -287,6 +294,6 @@ export function useLeadFlow(): LeadFlow {
     submitForm,
     primaryAction,
     skipImages,
-    selectImages: imageState.addFiles,
+    selectImages,
   };
 }
