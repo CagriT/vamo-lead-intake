@@ -2,6 +2,22 @@ import { PresignPictureDto } from './leads/dto/presign-picture.dto';
 import { AttachPictureDto } from './leads/dto/attach-picture.dto';
 import { CrmLeadDto } from './crm/dto/crm-lead.dto';
 
+export enum Salutation {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  DIVERS = 'DIVERS',
+}
+
+export type CreateLeadInput = {
+  salutation: Salutation;
+  firstName: string;
+  lastName: string;
+  postalCode: string;
+  email: string;
+  phone: string;
+  newsletterSingleOptIn?: boolean;
+};
+
 export interface CreateLeadResponse {
   success: boolean;
   message: string;

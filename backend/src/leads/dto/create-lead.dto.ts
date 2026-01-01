@@ -7,7 +7,7 @@ import {
   IsPostalCode,
   IsString,
 } from 'class-validator';
-import { Salutation } from '../salutation.enum';
+import { Salutation } from 'src/types';
 
 export class CreateLeadDto {
   @IsEnum(Salutation)
