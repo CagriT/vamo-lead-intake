@@ -20,8 +20,6 @@ A small lead-capture application with optional image upload and offline support.
 - Frontend: https://vamo-leads-frontend-dev-e5d28a8571a9.herokuapp.com/
 - Backend: https://vamo-leads-backend-dev-26de9e99bc1d.herokuapp.com/
 
-> Note: Heroku “container” apps may include a random suffix in the public URL. Always use the **Heroku “Open app”** URL for the correct domain.
-
 ---
 
 ## What the app does
